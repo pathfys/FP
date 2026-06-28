@@ -202,7 +202,7 @@ const RATE_ROWS = [
         {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onUpd={updDeal} />}
         {tab === "wallets"  && <PgWall />}
         {tab === "leaders"  && <PgLead />}
-        {tab === "profile"  && <PgProf stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
+        {tab === "profile"  && <PgProf user={tgUser} stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
       </div>
 
       <nav style={S.nav}>
@@ -231,6 +231,7 @@ function PgDeals({ deals, onOpen, onUpd }) {
   const active = deals.filter(d => d.status === "active");
   const hist = deals.filter(d => d.status !== "active");
   const list = sub === "active" ? active : hist;
+  const [tgUser] = useState(() => getTgUser());
 
   return (
     <div style={S.page}>
@@ -333,7 +334,7 @@ function PgLead() {
 /* ══════════════════════════════════
    PAGE: PROFILE
    ══════════════════════════════════ */
-function PgProf({ stats, bals, rateRows, rates, pt, setPt, onLang, dark, setDark }) {
+function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, setDark }) {
   const [hz, setHz] = useState(false);
   const nonZero = ALL_CUR.filter(c => (bals[c] ?? 0) !== 0);
   const shown = hz ? nonZero : ALL_CUR;
@@ -359,11 +360,16 @@ function PgProf({ stats, bals, rateRows, rates, pt, setPt, onLang, dark, setDark
         </div>
       </div>
 
-      {/* avatar */}
+    {/* avatar */}
       <div style={{textAlign:"center",margin:"16px 0 20px"}}>
-        <div style={{width:84,height:84,borderRadius:42,border:"2.5px solid #2F80ED",margin:"0 auto",overflow:"hidden",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:42}}>🐷</div>
-        <h2 style={{fontSize:20,fontWeight:700,margin:"10px 0 2px",color:"#111"}}>slap</h2>
-        <p style={{fontSize:14,color:"#94A3B8",margin:0}}>@slapgramm</p>
+        <div style={{width:84,height:84,borderRadius:42,border:"2.5px solid #2F80ED",margin:"0 auto",overflow:"hidden",background:"#EFF6FF",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {user.photo
+            ? <img src={user.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={(e)=>{e.target.style.display="none"}} />
+            : <span style={{fontSize:34,fontWeight:700,color:"#2F80ED"}}>{user.initial}</span>
+          }
+        </div>
+        <h2 style={{fontSize:20,fontWeight:700,margin:"10px 0 2px",color:"#111"}}>{user.name}</h2>
+        {user.username && <p style={{fontSize:14,color:"#94A3B8",margin:0}}>{user.username}</p>}
       </div>
 
       {/* tabs */}
@@ -554,6 +560,23 @@ function Ov({ children, onClose }) { return <div style={S.ov} onClick={onClose}>
 function Sh({ children }) { return <div style={S.sh} onClick={e=>e.stopPropagation()}>{children}</div>; }
 function XBtn({ onClick }) { return <button style={S.xBtn} onClick={onClick}>×</button>; }
 
+
+    /* ── данные пользователя из Telegram WebApp ── */
+function getTgUser() {
+  try {
+    const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (u) {
+      const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || "User";
+      return {
+        name,
+        username: u.username ? "@" + u.username : "",
+        photo: u.photo_url || "",
+        initial: (u.first_name?.[0] || "U").toUpperCase(),
+      };
+    }
+  } catch (e) {}
+  return { name: "slap", username: "@slapgramm", photo: "", initial: "S" };
+}
 /* ══════════════════════════════════
    HELPERS
    ══════════════════════════════════ */
@@ -567,7 +590,7 @@ function usdRate(currency, rates) {
   }
   return 1;
 }
-
+    
 /* ══════════════════════════════════
    STYLES
    ══════════════════════════════════ */
