@@ -120,6 +120,7 @@ function App() {
   const [rates, setRates] = useState({});
   const [profTab, setProfTab] = useState("transactions");
   const [dark, setDark] = useState(false);
+  const [tgUser] = useState(() => getTgUser());
 
   /* apply/remove dark class on <body> */
   useEffect(() => {
@@ -222,6 +223,37 @@ const RATE_ROWS = [
     </div>
   );
 }
+
+        /* ── данные пользователя из Telegram WebApp ── */
+function getTgUser() {
+  try {
+    const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (u) {
+      const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || "User";
+      return {
+        name,
+        username: u.username ? "@" + u.username : "",
+        photo: u.photo_url || "",
+        initial: (u.first_name?.[0] || "U").toUpperCase(),
+      };
+    }
+  } catch (e) {}
+  return { name: "slap", username: "@slapgramm", photo: "", initial: "S" };
+}
+/* ══════════════════════════════════
+   HELPERS
+   ══════════════════════════════════ */
+function usdRate(currency, rates) {
+  if (currency === "USD" || currency === "USDT") return rates["USDT/USD"] || 1;
+  const d = rates[currency + "/USD"];
+  if (d !== undefined) {
+    const n = parseFloat(d);
+    if (["RUB","UAH","CNY","AED","KZT"].includes(currency)) return 1 / n;
+    return n;
+  }
+  return 1;
+}
+    
 
 /* ══════════════════════════════════
    PAGE: DEALS
@@ -561,36 +593,6 @@ function Sh({ children }) { return <div style={S.sh} onClick={e=>e.stopPropagati
 function XBtn({ onClick }) { return <button style={S.xBtn} onClick={onClick}>×</button>; }
 
 
-    /* ── данные пользователя из Telegram WebApp ── */
-function getTgUser() {
-  try {
-    const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    if (u) {
-      const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || "User";
-      return {
-        name,
-        username: u.username ? "@" + u.username : "",
-        photo: u.photo_url || "",
-        initial: (u.first_name?.[0] || "U").toUpperCase(),
-      };
-    }
-  } catch (e) {}
-  return { name: "slap", username: "@slapgramm", photo: "", initial: "S" };
-}
-/* ══════════════════════════════════
-   HELPERS
-   ══════════════════════════════════ */
-function usdRate(currency, rates) {
-  if (currency === "USD" || currency === "USDT") return rates["USDT/USD"] || 1;
-  const d = rates[currency + "/USD"];
-  if (d !== undefined) {
-    const n = parseFloat(d);
-    if (["RUB","UAH","CNY","AED","KZT"].includes(currency)) return 1 / n;
-    return n;
-  }
-  return 1;
-}
-    
 /* ══════════════════════════════════
    STYLES
    ══════════════════════════════════ */
