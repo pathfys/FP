@@ -72,7 +72,8 @@ const Sym = ({ s, f = 0.46, children }) => (
 );
 
 const icons = {
-  TON:   (s) => <CI bg="#2AABEE" size={s}><svg width={s*.7} height={s*.7} viewBox="0 0 40 40" fill="none"><path d="M9 9 H31 Q34 9 35.5 12 Q37 15 35 17.5 L21.5 33 Q20 34.6 18.5 33 L5 17.5 Q3 15 4.5 12 Q6 9 9 9 Z" fill="#fff"/><path d="M20 13 L21.7 18.3 L27 20 L21.7 21.7 L20 27 L18.3 21.7 L13 20 L18.3 18.3 Z" fill="#2AABEE"/></svg></CI>,
+  GRAM:  (s) => <CI bg="#2AABEE" size={s}><svg width={s*.7} height={s*.7} viewBox="0 0 40 40" fill="none"><path d="M9 9 H31 Q34 9 35.5 12 Q37 15 35 17.5 L21.5 33 Q20 34.6 18.5 33 L5 17.5 Q3 15 4.5 12 Q6 9 9 9 Z" fill="#fff"/><path d="M20 13 L21.7 18.3 L27 20 L21.7 21.7 L20 27 L18.3 21.7 L13 20 L18.3 18.3 Z" fill="#2AABEE"/></svg></CI>,
+  TON:   (s) => icons.GRAM(s),
   USDT:  (s) => <CI bg="#26A17B" size={s}><svg width={s*.5} height={s*.48} viewBox="0 0 20 18" fill="none"><path d="M2 2h16M2 5.5h16" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/><line x1="10" y1="5.5" x2="10" y2="17" stroke="#fff" strokeWidth="2.8" strokeLinecap="round"/></svg></CI>,
   STARS: (s) => <CI bg="#FFB800" size={s}><svg width={s*.5} height={s*.5} viewBox="0 0 20 20" fill="none"><path d="M10 1.5l2.5 5.5 6 .5-4.5 4 1.3 5.8L10 14.5l-5.3 2.8L6 11.5 1.5 7.5l6-.5L10 1.5z" fill="#fff"/></svg></CI>,
   RUB:   (s) => <CI bg="#4F46E5" size={s}><Sym s={s}>₽</Sym></CI>,
@@ -95,9 +96,9 @@ const icon = (code, size = 36) => {
 };
 
 /* currency lists */
-const ALL_CUR = ["TON","USDT","BTC","ETH","USD","EUR","RUB","UAH","CNY","AED","KZT","GBP","STARS"];
-const DEAL_CUR = ["TON","USDT","STARS","RUB","UAH","CNY","AED","EUR","USD","KZT","GBP","BTC","ETH"];
-const WALL_TABS = ["TON","USDT","STARS","BTC","ETH","RUB"];
+const ALL_CUR = ["GRAM","USDT","BTC","ETH","USD","EUR","RUB","UAH","CNY","AED","KZT","GBP","STARS"];
+const DEAL_CUR = ["GRAM","USDT","STARS","RUB","UAH","CNY","AED","EUR","USD","KZT","GBP","BTC","ETH"];
+const WALL_TABS = ["GRAM","USDT","STARS","BTC","ETH","RUB"];
 
 /* ════════════════════════════════════════════
    NAV SVG ICONS
@@ -126,34 +127,35 @@ function App() {
   }, [dark]);
 
   /* ── fetch live exchange rates ── */
-  useEffect(() => {
+ useEffect(() => {
     const load = async () => {
       try {
         const [cr, fr] = await Promise.all([
-          fetch("https://api.coingecko.com/api/v3/simple/price?ids=toncoin,bitcoin,ethereum,tether&vs_currencies=usd,rub").then(r=>r.json()).catch(()=>({})),
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,bitcoin,ethereum,tether&vs_currencies=usd").then(r=>r.json()).catch(()=>({})),
           fetch("https://open.er-api.com/v6/latest/USD").then(r=>r.json()).catch(()=>({rates:{}})),
         ]);
         const fRates = fr?.rates ?? {};
+        const gram = cr?.["the-open-network"]?.usd ?? 1.56;
         setRates({
-          "TON/USD":  cr?.toncoin?.usd  ?? 2.45,
-          "BTC/USD":  cr?.bitcoin?.usd   ?? 104500,
-          "ETH/USD":  cr?.ethereum?.usd  ?? 2680,
-          "USDT/USD": cr?.tether?.usd    ?? 1.00,
-          "USDT/RUB": (fRates.RUB ?? 85) * (cr?.tether?.usd ?? 1),
-          "USD/RUB":  fRates.RUB  ?? 85,
-          "EUR/USD":  fRates.EUR  ? +(1/fRates.EUR).toFixed(4) : 1.08,
-          "GBP/USD":  fRates.GBP  ? +(1/fRates.GBP).toFixed(4) : 1.27,
-          "UAH/USD":  fRates.UAH  ?? 41.2,
-          "CNY/USD":  fRates.CNY  ?? 7.24,
-          "AED/USD":  fRates.AED  ?? 3.67,
-          "KZT/USD":  fRates.KZT  ?? 450,
+          "GRAM/USD": gram,
+          "BTC/USD":  cr?.bitcoin?.usd  ?? 60055,
+          "ETH/USD":  cr?.ethereum?.usd ?? 1574,
+          "USDT/USD": cr?.tether?.usd   ?? 1.00,
+          "USDT/RUB": (fRates.RUB ?? 76) * (cr?.tether?.usd ?? 1),
+          "USD/RUB":  fRates.RUB ?? 76,
+          "EUR/USD":  fRates.EUR ? +(1/fRates.EUR).toFixed(4) : 1.14,
+          "GBP/USD":  fRates.GBP ? +(1/fRates.GBP).toFixed(4) : 1.32,
+          "UAH/USD":  fRates.UAH ?? 44.9,
+          "CNY/USD":  fRates.CNY ?? 6.81,
+          "AED/USD":  fRates.AED ?? 3.67,
+          "KZT/USD":  fRates.KZT ?? 485,
         });
       } catch {
-        setRates({ "TON/USD":2.45,"BTC/USD":104500,"ETH/USD":2680,"USDT/USD":1,"USDT/RUB":85,"USD/RUB":85,"EUR/USD":1.08,"GBP/USD":1.27,"UAH/USD":41.2,"CNY/USD":7.24,"AED/USD":3.67,"KZT/USD":450 });
+        setRates({ "GRAM/USD":1.56,"BTC/USD":60055,"ETH/USD":1574,"USDT/USD":1,"USDT/RUB":76,"USD/RUB":76,"EUR/USD":1.14,"GBP/USD":1.32,"UAH/USD":44.9,"CNY/USD":6.81,"AED/USD":3.67,"KZT/USD":485 });
       }
     };
     load();
-    const t = setInterval(load, 60000);
+    const t = setInterval(load, 30000);
     return () => clearInterval(t);
   }, []);
 
@@ -182,8 +184,8 @@ function App() {
   };
   const updDeal = (id, st) => setDeals(p => p.map(d => d.id === id ? { ...d, status: st } : d));
 
-  const RATE_ROWS = [
-    { pair:"TON/USD", ic:"TON" },{ pair:"BTC/USD", ic:"BTC" },{ pair:"ETH/USD", ic:"ETH" },
+const RATE_ROWS = [
+    { pair:"GRAM/USD", ic:"GRAM" },{ pair:"BTC/USD", ic:"BTC" },{ pair:"ETH/USD", ic:"ETH" },
     { pair:"USDT/RUB", ic:"USDT" },{ pair:"USD/RUB", ic:"USD" },{ pair:"EUR/USD", ic:"EUR" },
     { pair:"GBP/USD", ic:"GBP" },{ pair:"UAH/USD", ic:"UAH" },{ pair:"CNY/USD", ic:"CNY" },
     { pair:"AED/USD", ic:"AED" },{ pair:"KZT/USD", ic:"KZT" },
@@ -333,7 +335,8 @@ function PgLead() {
    ══════════════════════════════════ */
 function PgProf({ stats, bals, rateRows, rates, pt, setPt, onLang, dark, setDark }) {
   const [hz, setHz] = useState(false);
-  const shown = ALL_CUR.filter(c => !hz || (bals[c] ?? 0) !== 0);
+  const nonZero = ALL_CUR.filter(c => (bals[c] ?? 0) !== 0);
+  const shown = hz ? nonZero : ALL_CUR;
 
   const fmt = (pair) => {
     const v = rates[pair];
