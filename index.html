@@ -1,0 +1,552 @@
+import { useState, useEffect } from "react";
+
+/* ════════════════════════════════════════════
+   CURRENCY ICON COMPONENTS
+   ════════════════════════════════════════════ */
+const CI = ({ bg, children, size = 36 }) => (
+  <div style={{
+    width: size, height: size, borderRadius: "50%", background: bg,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    flexShrink: 0, color: "#fff", fontWeight: 700,
+    fontSize: size * 0.44, lineHeight: 1,
+  }}>{children}</div>
+);
+
+// consistent currency-symbol renderer
+const Sym = ({ s, f = 0.46, children }) => (
+  <span style={{ fontSize: s * f, fontWeight: 700, lineHeight: 1, fontFamily: "Arial, sans-serif" }}>{children}</span>
+);
+
+const icons = {
+  TON:   (s) => <CI bg="#0098EA" size={s}><svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18l-9 16Z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="12" y1="9" x2="12" y2="21"/></svg></CI>,
+  USDT:  (s) => <CI bg="#26A17B" size={s}><svg width={s*.5} height={s*.48} viewBox="0 0 20 18" fill="none"><path d="M2 2h16M2 5.5h16" stroke="#fff" strokeWidth="2.2" strokeLinecap="round"/><line x1="10" y1="5.5" x2="10" y2="17" stroke="#fff" strokeWidth="2.8" strokeLinecap="round"/></svg></CI>,
+  STARS: (s) => <CI bg="#FFB800" size={s}><svg width={s*.5} height={s*.5} viewBox="0 0 20 20" fill="none"><path d="M10 1.5l2.5 5.5 6 .5-4.5 4 1.3 5.8L10 14.5l-5.3 2.8L6 11.5 1.5 7.5l6-.5L10 1.5z" fill="#fff"/></svg></CI>,
+  RUB:   (s) => <CI bg="#4F46E5" size={s}><Sym s={s}>₽</Sym></CI>,
+  UAH:   (s) => <CI bg="#0EA5E9" size={s}><Sym s={s}>₴</Sym></CI>,
+  CNY:   (s) => <CI bg="#DC2626" size={s}><Sym s={s}>¥</Sym></CI>,
+  JPY:   (s) => <CI bg="#1F2937" size={s}><Sym s={s}>¥</Sym></CI>,
+  TRY:   (s) => <CI bg="#E30A17" size={s}><Sym s={s}>₺</Sym></CI>,
+  AED:   (s) => <CI bg="#15803D" size={s}><Sym s={s} f={.32}>د.إ</Sym></CI>,
+  EUR:   (s) => <CI bg="#1D4ED8" size={s}><Sym s={s}>€</Sym></CI>,
+  USD:   (s) => <CI bg="#16A34A" size={s}><Sym s={s}>$</Sym></CI>,
+  KZT:   (s) => <CI bg="#06B6D4" size={s}><Sym s={s}>₸</Sym></CI>,
+  BTC:   (s) => <CI bg="#F7931A" size={s}><svg width={s*.44} height={s*.52} viewBox="0 0 18 22" fill="none"><path d="M5 2v18M9 2v18" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/><path d="M4 5h6.5c2 0 3.5 1 3.5 3s-1.2 2.8-2.5 3c1.8.2 3.2 1.2 3.2 3.2 0 2.2-1.8 3.3-4 3.3H4V5z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" fill="none"/></svg></CI>,
+  ETH:   (s) => <CI bg="#627EEA" size={s}><svg width={s*.42} height={s*.55} viewBox="0 0 16 26" fill="none"><path d="M8 0L0.5 13.2 8 17.2 15.5 13.2 8 0z" fill="#fff" fillOpacity=".92"/><path d="M8 17.2L0.5 13.2 8 10 15.5 13.2 8 17.2z" fill="#fff" fillOpacity=".55"/><path d="M8 18.8L0.5 14.8 8 26 15.5 14.8 8 18.8z" fill="#fff" fillOpacity=".75"/></svg></CI>,
+  GBP:   (s) => <CI bg="#374151" size={s}><Sym s={s}>£</Sym></CI>,
+};
+
+const icon = (code, size = 36) => {
+  const fn = icons[code];
+  return fn ? fn(size) : <CI bg="#94A3B8" size={size}><span>{code?.[0] ?? "?"}</span></CI>;
+};
+
+/* currency lists */
+const ALL_CUR = ["TON","USDT","BTC","ETH","USD","EUR","RUB","UAH","CNY","AED","KZT","GBP","STARS"];
+const DEAL_CUR = ["TON","USDT","STARS","RUB","UAH","CNY","AED","EUR","USD","KZT","GBP","BTC","ETH"];
+const WALL_TABS = ["TON","USDT","STARS","BTC","ETH","RUB"];
+
+/* ════════════════════════════════════════════
+   NAV SVG ICONS
+   ════════════════════════════════════════════ */
+const NDeals = ({c}) => <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="12" y="2" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="2" y="12" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="12" y="12" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/></svg>;
+const NWall = ({c}) => <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="2" y="5" width="18" height="13" rx="2.5" stroke={c} strokeWidth="1.8"/><path d="M2 9.5h18" stroke={c} strokeWidth="1.5"/><circle cx="15.5" cy="13" r="1.2" fill={c}/></svg>;
+const NLead = ({c}) => <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2l2.5 5h5.5l-4.5 3.5 1.8 5.5L11 13l-5.3 3 1.8-5.5L3 7h5.5L11 2z" stroke={c} strokeWidth="1.6" strokeLinejoin="round" fill="none"/></svg>;
+const NProf = ({c}) => <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="3.5" stroke={c} strokeWidth="1.8"/><path d="M4 19c0-3.5 3.2-6 7-6s7 2.5 7 6" stroke={c} strokeWidth="1.8"/></svg>;
+
+/* ════════════════════════════════════════════
+   MAIN APP
+   ════════════════════════════════════════════ */
+export default function App() {
+  const [tab, setTab] = useState("deals");
+  const [showCreate, setShowCreate] = useState(false);
+  const [showLang, setShowLang] = useState(false);
+  const [lang, setLang] = useState("Русский");
+  const [deals, setDeals] = useState([]);
+  const [rates, setRates] = useState({});
+  const [profTab, setProfTab] = useState("transactions");
+
+  /* ── fetch live exchange rates ── */
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [cr, fr] = await Promise.all([
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=toncoin,bitcoin,ethereum,tether&vs_currencies=usd,rub").then(r=>r.json()).catch(()=>({})),
+          fetch("https://open.er-api.com/v6/latest/USD").then(r=>r.json()).catch(()=>({rates:{}})),
+        ]);
+        const fRates = fr?.rates ?? {};
+        setRates({
+          "TON/USD":  cr?.toncoin?.usd  ?? 2.45,
+          "BTC/USD":  cr?.bitcoin?.usd   ?? 104500,
+          "ETH/USD":  cr?.ethereum?.usd  ?? 2680,
+          "USDT/USD": cr?.tether?.usd    ?? 1.00,
+          "USDT/RUB": (fRates.RUB ?? 85) * (cr?.tether?.usd ?? 1),
+          "USD/RUB":  fRates.RUB  ?? 85,
+          "EUR/USD":  fRates.EUR  ? +(1/fRates.EUR).toFixed(4) : 1.08,
+          "GBP/USD":  fRates.GBP  ? +(1/fRates.GBP).toFixed(4) : 1.27,
+          "UAH/USD":  fRates.UAH  ?? 41.2,
+          "CNY/USD":  fRates.CNY  ?? 7.24,
+          "AED/USD":  fRates.AED  ?? 3.67,
+          "KZT/USD":  fRates.KZT  ?? 450,
+        });
+      } catch {
+        setRates({ "TON/USD":2.45,"BTC/USD":104500,"ETH/USD":2680,"USDT/USD":1,"USDT/RUB":85,"USD/RUB":85,"EUR/USD":1.08,"GBP/USD":1.27,"UAH/USD":41.2,"CNY/USD":7.24,"AED/USD":3.67,"KZT/USD":450 });
+      }
+    };
+    load();
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  /* ── deal stats (auto-update) ── */
+  const stats = {
+    total: deals.length,
+    success: deals.filter(d => d.status === "success").length,
+    completed: deals.filter(d => d.status === "completed").length,
+    cancelled: deals.filter(d => d.status === "cancelled").length,
+    volume: deals.reduce((s, d) => s + (d.usd || 0), 0),
+  };
+
+  /* ── balances (auto from deals) ── */
+  const bals = {};
+  ALL_CUR.forEach(c => bals[c] = 0);
+  deals.forEach(d => {
+    if (d.status !== "cancelled") {
+      bals[d.currency] = (bals[d.currency] || 0) + (d.type === "Покупка" ? 1 : -1) * parseFloat(d.amount);
+    }
+  });
+
+  const addDeal = (deal) => {
+    const usd = parseFloat(deal.amount) * usdRate(deal.currency, rates);
+    setDeals(p => [...p, { ...deal, id: Date.now(), status: "active", usd, at: new Date() }]);
+    setShowCreate(false);
+  };
+  const updDeal = (id, st) => setDeals(p => p.map(d => d.id === id ? { ...d, status: st } : d));
+
+  const RATE_ROWS = [
+    { pair:"TON/USD", ic:"TON" },{ pair:"BTC/USD", ic:"BTC" },{ pair:"ETH/USD", ic:"ETH" },
+    { pair:"USDT/RUB", ic:"USDT" },{ pair:"USD/RUB", ic:"USD" },{ pair:"EUR/USD", ic:"EUR" },
+    { pair:"GBP/USD", ic:"GBP" },{ pair:"UAH/USD", ic:"UAH" },{ pair:"CNY/USD", ic:"CNY" },
+    { pair:"AED/USD", ic:"AED" },{ pair:"KZT/USD", ic:"KZT" },
+  ];
+
+  return (
+    <div style={S.root}>
+      <div style={S.topBar}>
+        <button style={S.topC}><svg width="4" height="16" fill="#777"><circle cx="2" cy="2" r="1.6"/><circle cx="2" cy="8" r="1.6"/><circle cx="2" cy="14" r="1.6"/></svg></button>
+        <button style={S.topC}><svg width="12" height="12" viewBox="0 0 12 12" stroke="#777" strokeWidth="2.2" strokeLinecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg></button>
+      </div>
+
+      <div style={S.body}>
+        {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onUpd={updDeal} />}
+        {tab === "wallets"  && <PgWall />}
+        {tab === "leaders"  && <PgLead />}
+        {tab === "profile"  && <PgProf stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} />}
+      </div>
+
+      <nav style={S.nav}>
+        {[{id:"deals",l:"Сделки",I:NDeals},{id:"wallets",l:"Кошельки",I:NWall},{id:"leaders",l:"Лидеры",I:NLead},{id:"profile",l:"Профиль",I:NProf}].map(t => {
+          const on = tab === t.id;
+          return (
+            <button key={t.id} style={S.navBtn} onClick={() => setTab(t.id)}>
+              <div style={on ? S.navOn : S.navOff}><t.I c={on?"#fff":"#8E8E93"}/></div>
+              <span style={{fontSize:10,color:on?"#2F80ED":"#8E8E93",marginTop:2}}>{t.l}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {showCreate && <MCreateDeal onClose={() => setShowCreate(false)} onDone={addDeal} />}
+      {showLang && <MLang cur={lang} onPick={l => { setLang(l); setShowLang(false); }} onClose={() => setShowLang(false)} />}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   PAGE: DEALS
+   ══════════════════════════════════ */
+function PgDeals({ deals, onOpen, onUpd }) {
+  const [sub, setSub] = useState("active");
+  const active = deals.filter(d => d.status === "active");
+  const hist = deals.filter(d => d.status !== "active");
+  const list = sub === "active" ? active : hist;
+
+  return (
+    <div style={S.page}>
+      <h1 style={S.h1}>Мои сделки</h1>
+      <Btn onClick={onOpen}>+ Создать сделку</Btn>
+      <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
+        <TBtn on={sub==="active"} onClick={() => setSub("active")}>Активные</TBtn>
+        <TBtn on={sub==="history"} onClick={() => setSub("history")}>История сделок</TBtn>
+      </div>
+      <div style={{marginTop:16}}>
+        {list.length === 0
+          ? <p style={S.empty}>{sub==="active" ? "Нет активных сделок" : "Нет завершённых сделок"}</p>
+          : list.map(d => <DealCard key={d.id} d={d} onComplete={() => onUpd(d.id,"completed")} onCancel={() => onUpd(d.id,"cancelled")} />)
+        }
+      </div>
+    </div>
+  );
+}
+
+function DealCard({ d, onComplete, onCancel }) {
+  const col = d.status==="completed"?"#16A34A":d.status==="cancelled"?"#EF4444":"#2F80ED";
+  const lbl = d.status==="completed"?"Завершена":d.status==="cancelled"?"Отменена":"Активна";
+  return (
+    <div style={{...S.card, marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {icon(d.currency, 28)}
+          <span style={{fontWeight:600,fontSize:15}}>{d.type}</span>
+        </div>
+        <span style={{fontSize:11,fontWeight:600,color:col,background:col+"14",padding:"3px 10px",borderRadius:20}}>{lbl}</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:"#64748B"}}>
+        <span>{d.amount} {d.currency}</span>
+        <span style={{fontSize:12,color:"#94A3B8",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.description}</span>
+      </div>
+      {d.status === "active" && (
+        <div style={{display:"flex",gap:8,marginTop:10}}>
+          <button style={{...S.smBtn,background:"#16A34A",color:"#fff"}} onClick={onComplete}>✓ Завершить</button>
+          <button style={{...S.smBtn,background:"#fff",color:"#EF4444",border:"1px solid #FCA5A5"}} onClick={onCancel}>✕ Отменить</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   PAGE: WALLETS
+   ══════════════════════════════════ */
+function PgWall() {
+  const [wt, setWt] = useState("TON");
+  return (
+    <div style={S.page}>
+      <h1 style={S.h1}>Мои кошельки</h1>
+      <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,marginBottom:16}}>
+        {WALL_TABS.map(c => (
+          <button key={c} style={wt===c?S.pillOn:S.pillOff} onClick={() => setWt(c)}>
+            {icon(c,18)}<span style={{marginLeft:6,fontSize:13,fontWeight:600}}>{c}</span>
+          </button>
+        ))}
+      </div>
+      <div style={S.card}>
+        <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Мои кошельки</p>
+        <p style={{fontSize:13,color:"#94A3B8",margin:"0 0 12px"}}>{wt} Кошелек</p>
+        <Btn style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="12" rx="2.5" stroke="#fff" strokeWidth="1.5"/><path d="M5 8h8M5 11h5" stroke="#fff" strokeWidth="1.3"/></svg>
+          Подключить {wt} кошелёк
+        </Btn>
+      </div>
+      <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
+        <Btn>↑ Пополнение</Btn>
+        <OBtn>↓ Вывести</OBtn>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   PAGE: LEADERS
+   ══════════════════════════════════ */
+function PgLead() {
+  return (
+    <div style={S.page}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+        <h1 style={{...S.h1,margin:0}}>Топ участников</h1>
+        <span style={{fontSize:13,color:"#94A3B8"}}>По объёму завершённых сделок</span>
+      </div>
+      <div style={{
+        background:"linear-gradient(145deg,#0F172A 0%,#1E293B 60%,#0F172A 100%)",
+        borderRadius:20,padding:28,minHeight:260,position:"relative",overflow:"hidden",
+        display:"flex",alignItems:"flex-end",justifyContent:"space-between",
+      }}>
+        <div style={{position:"absolute",top:"30%",left:"50%",transform:"translate(-50%,-50%)",width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(234,179,8,.35) 0%,transparent 70%)"}}/>
+        <div style={{opacity:.6}}><div style={{width:64,height:46,borderRadius:8,background:"linear-gradient(135deg,#CBD5E1,#94A3B8)",border:"1px solid rgba(255,255,255,.06)"}}/></div>
+        <div><div style={{width:72,height:54,borderRadius:8,background:"linear-gradient(135deg,#D97706,#92400E)",border:"1px solid rgba(255,255,255,.1)"}}/></div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   PAGE: PROFILE
+   ══════════════════════════════════ */
+function PgProf({ stats, bals, rateRows, rates, pt, setPt, onLang }) {
+  const [hz, setHz] = useState(false);
+  const shown = ALL_CUR.filter(c => !hz || (bals[c] ?? 0) !== 0);
+
+  const fmt = (pair) => {
+    const v = rates[pair];
+    if (v === undefined || v === null) return "—";
+    const n = parseFloat(v);
+    if (isNaN(n)) return "—";
+    if (pair.includes("BTC") || pair.includes("ETH")) return "$" + Math.round(n).toLocaleString("en-US");
+    if (pair === "USDT/RUB" || pair === "USD/RUB") return "₽" + n.toFixed(2);
+    if (["UAH/USD","CNY/USD","AED/USD","KZT/USD"].includes(pair)) return n.toFixed(2);
+    return "$" + n.toFixed(2);
+  };
+
+  return (
+    <div style={S.page}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <h1 style={S.h1}>Профиль</h1>
+        <div style={{display:"flex",gap:6,marginTop:4}}>
+          <button style={S.circS}><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#2F80ED" strokeWidth="1.4"><circle cx="8" cy="8" r="3.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/></svg></button>
+          <button style={S.circS}><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#94A3B8" strokeWidth="1.4"><path d="M13 9.5a5.5 5.5 0 01-6.5-6.5 5.5 5.5 0 106.5 6.5z"/></svg></button>
+        </div>
+      </div>
+
+      {/* avatar */}
+      <div style={{textAlign:"center",margin:"16px 0 20px"}}>
+        <div style={{width:84,height:84,borderRadius:42,border:"2.5px solid #2F80ED",margin:"0 auto",overflow:"hidden",background:"#F1F5F9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:42}}>🐷</div>
+        <h2 style={{fontSize:20,fontWeight:700,margin:"10px 0 2px",color:"#111"}}>slap</h2>
+        <p style={{fontSize:14,color:"#94A3B8",margin:0}}>@slapgramm</p>
+      </div>
+
+      {/* tabs */}
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        <button style={pt==="transactions"?S.ptOn:S.ptOff} onClick={() => setPt("transactions")}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>
+          <span style={{marginLeft:6}}>Транзакции</span>
+        </button>
+        <button style={pt==="languages"?S.ptOn:S.ptOff} onClick={() => { setPt("languages"); onLang(); }}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><ellipse cx="8" cy="8" rx="3" ry="5.5"/><path d="M2.5 8h11"/></svg>
+          <span style={{marginLeft:6}}>Языки</span>
+        </button>
+      </div>
+
+      {/* balances */}
+      <div style={S.card}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <p style={{fontSize:15,fontWeight:600,color:"#333",margin:0}}>Балансы</p>
+          <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={() => setHz(!hz)}>
+            <Tog on={hz}/>
+            <span style={{fontSize:12,color:"#94A3B8"}}>Скрыть нулевые</span>
+          </div>
+        </div>
+        {shown.length === 0
+          ? <p style={{textAlign:"center",color:"#CBD5E1",fontSize:13,padding:"20px 0"}}>Все балансы нулевые</p>
+          : shown.map(c => (
+          <div key={c} style={S.bRow}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>{icon(c,36)}<span style={{fontSize:15,fontWeight:600,color:"#333"}}>{c}</span></div>
+            <span style={{fontSize:15,fontWeight:600,color:"#2F80ED"}}>{(bals[c]??0).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* stats */}
+      <div style={{...S.card,marginTop:14}}>
+        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Статистика сделок</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          {[{l:"Успешных",v:stats.success},{l:"Завершённых",v:stats.completed},{l:"Отменённых",v:stats.cancelled},{l:"Всего",v:stats.total}].map(s => (
+            <div key={s.l} style={S.statBox}>
+              <p style={{fontSize:11,color:"#94A3B8",margin:"0 0 4px"}}>{s.l}</p>
+              <p style={{fontSize:22,fontWeight:700,color:"#333",margin:0}}>{s.v}</p>
+            </div>
+          ))}
+        </div>
+        <div style={S.turnover}>
+          <p style={{fontSize:13,color:"rgba(255,255,255,.8)",margin:"0 0 2px"}}>Торговый оборот</p>
+          <p style={{fontSize:22,fontWeight:700,color:"#fff",margin:0}}>{stats.volume.toFixed(2)} $</p>
+        </div>
+      </div>
+
+      {/* rates */}
+      <div style={{...S.card,marginTop:14}}>
+        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Курсы валют</p>
+        {rateRows.map(r => (
+          <div key={r.pair} style={S.bRow}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>{icon(r.ic,36)}<span style={{fontSize:14,fontWeight:600,color:"#333"}}>{r.pair}</span></div>
+            <span style={{fontSize:14,fontWeight:600,color:"#2F80ED"}}>{fmt(r.pair)}</span>
+          </div>
+        ))}
+        <p style={{fontSize:10,color:"#CBD5E1",textAlign:"center",margin:"10px 0 0"}}>Обновляется каждые 60 сек</p>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   MODAL: CREATE DEAL
+   ══════════════════════════════════ */
+function MCreateDeal({ onClose, onDone }) {
+  const [step, setStep] = useState(1);
+  const [type, setType] = useState("");
+  const [cur, setCur] = useState("");
+  const [amt, setAmt] = useState("");
+  const [desc, setDesc] = useState("");
+  const back = () => step > 1 ? setStep(step-1) : onClose();
+
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Создать сделку</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      {step > 1 && <button style={S.backL} onClick={back}>‹ Назад</button>}
+
+      {step===1 && <div style={{padding:"0 20px 24px"}}>
+        <p style={S.sT}>Выберите тип сделки</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <OBtn onClick={() => { setType("Покупка"); setStep(2); }}>↓ Купить</OBtn>
+          <OBtn onClick={() => { setType("Продажа"); setStep(2); }}>↑ Продать</OBtn>
+        </div>
+      </div>}
+
+      {step===2 && <div style={{padding:"0 20px 24px"}}>
+        <p style={S.sT}>Выберите валюту</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {DEAL_CUR.map(c => (
+            <button key={c} style={S.curCell} onClick={() => { setCur(c); setStep(3); }}>
+              {icon(c,38)}<span style={{marginTop:6,fontSize:13,fontWeight:600,color:"#333"}}>{c}</span>
+            </button>
+          ))}
+        </div>
+      </div>}
+
+      {step===3 && <div style={{padding:"0 20px 24px"}}>
+        <p style={S.sT}>Введите сумму</p>
+        <div style={S.inpRow}>
+          <input type="number" placeholder="0.00" value={amt} onChange={e=>setAmt(e.target.value)} style={S.inp} autoFocus/>
+          <span style={{fontSize:14,fontWeight:600,color:"#64748B"}}>{cur}</span>
+        </div>
+        <Btn style={{marginTop:14,opacity:amt?1:.5}} onClick={() => amt && setStep(4)}>Далее</Btn>
+      </div>}
+
+      {step===4 && <div style={{padding:"0 20px 24px"}}>
+        <p style={S.sT}>Описание товара</p>
+        <div style={{background:"#F8FAFC",borderRadius:14,padding:14,border:"1px solid #E2E8F0",marginBottom:14}}>
+          <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 4px"}}>Если это NFT-подарок:</p>
+          <p style={{fontSize:12,color:"#64748B",margin:"0 0 8px",lineHeight:1.5}}>Профиль Telegram → подарок → ··· → «Скопировать ссылку». Несколько подарков — каждый со своей строки.</p>
+          <div style={{background:"#EFF6FF",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#2F80ED",lineHeight:1.7}}>https://t.me/nft/PlushPepe-1<br/>https://t.me/nft/DurovsCap-1</div>
+          <p style={{fontSize:12,color:"#64748B",margin:"8px 0 0"}}><b>Иначе</b> просто опишите товар, например: <span style={{color:"#2F80ED"}}>2 Crystals and 1 Butterfly</span></p>
+        </div>
+        <textarea style={S.ta} placeholder="Вставьте ссылки или опишите товар..." value={desc} onChange={e=>setDesc(e.target.value)} rows={4}/>
+        <Btn style={{marginTop:14,opacity:desc?1:.5}} onClick={() => desc && setStep(5)}>Далее</Btn>
+      </div>}
+
+      {step===5 && <div style={{padding:"0 20px 24px"}}>
+        <p style={S.sT}>Подтверждение</p>
+        <div style={{background:"#F8FAFC",borderRadius:14,padding:18}}>
+          {[["Тип:",type],["Сумма:",`${amt} ${cur}`],["Описание:",desc]].map(([k,v])=>(
+            <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid #F1F5F9",fontSize:14}}>
+              <span style={{color:"#94A3B8"}}>{k}</span>
+              <span style={{fontWeight:600,color:"#333",textAlign:"right",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <Btn style={{marginTop:18}} onClick={() => onDone({type,currency:cur,amount:amt,description:desc})}>Создать сделку</Btn>
+      </div>}
+    </Sh></Ov>
+  );
+}
+
+/* ══════════════════════════════════
+   MODAL: LANGUAGE
+   ══════════════════════════════════ */
+function MLang({ cur, onPick, onClose }) {
+  const ls = ["Русский","English","Українська","中文","العربية"];
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 14px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Язык</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      <div style={{padding:"0 20px 24px",display:"flex",flexDirection:"column",gap:10}}>
+        {ls.map(l => {
+          const on = l === cur;
+          return (
+            <button key={l} onClick={() => onPick(l)} style={{
+              width:"100%",padding:"15px 18px",borderRadius:14,fontSize:16,fontWeight:500,
+              cursor:"pointer",textAlign:"center",
+              background:on?"#EFF6FF":"#fff",
+              border:on?"2px solid #2F80ED":"1.5px solid #E2E8F0",
+              color:on?"#2F80ED":"#333",
+              display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+            }}>
+              {l}
+              {on && <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9l3.5 3.5L14 6" stroke="#2F80ED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </button>
+          );
+        })}
+      </div>
+    </Sh></Ov>
+  );
+}
+
+/* ══════════════════════════════════
+   SHARED COMPONENTS
+   ══════════════════════════════════ */
+function Btn({ children, style, ...p }) { return <button style={{...S.btn,...style}} {...p}>{children}</button>; }
+function OBtn({ children, ...p }) { return <button style={S.oBtn} {...p}>{children}</button>; }
+function TBtn({ on, children, ...p }) { return <button style={on?S.tOn:S.tOff} {...p}>{children}</button>; }
+function Tog({ on }) {
+  return (
+    <div style={{width:38,height:22,borderRadius:11,background:on?"#2F80ED":"#E2E8F0",position:"relative",transition:"background .2s",flexShrink:0}}>
+      <div style={{width:18,height:18,borderRadius:9,background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.15)"}}/>
+    </div>
+  );
+}
+function Ov({ children, onClose }) { return <div style={S.ov} onClick={onClose}>{children}</div>; }
+function Sh({ children }) { return <div style={S.sh} onClick={e=>e.stopPropagation()}>{children}</div>; }
+function XBtn({ onClick }) { return <button style={S.xBtn} onClick={onClick}>×</button>; }
+
+/* ══════════════════════════════════
+   HELPERS
+   ══════════════════════════════════ */
+function usdRate(currency, rates) {
+  if (currency === "USD" || currency === "USDT") return rates["USDT/USD"] || 1;
+  const d = rates[currency + "/USD"];
+  if (d !== undefined) {
+    const n = parseFloat(d);
+    if (["RUB","UAH","CNY","AED","KZT"].includes(currency)) return 1 / n;
+    return n;
+  }
+  return 1;
+}
+
+/* ══════════════════════════════════
+   STYLES
+   ══════════════════════════════════ */
+const S = {
+  root:{width:"100%",maxWidth:400,margin:"0 auto",minHeight:"100vh",background:"#F1F5F9",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",display:"flex",flexDirection:"column",position:"relative"},
+  topBar:{position:"absolute",top:10,right:14,zIndex:10,display:"flex",gap:8},
+  topC:{width:34,height:34,borderRadius:17,background:"rgba(0,0,0,.06)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"},
+  body:{flex:1,overflowY:"auto",paddingBottom:78},
+  page:{padding:"48px 18px 18px"},
+  h1:{fontSize:24,fontWeight:800,margin:"0 0 18px",color:"#111"},
+  empty:{textAlign:"center",padding:"44px 0",color:"#94A3B8",fontSize:14},
+
+  btn:{width:"100%",padding:"13px 20px",background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",color:"#fff",border:"none",borderRadius:14,fontSize:15,fontWeight:600,cursor:"pointer"},
+  oBtn:{width:"100%",padding:"13px 20px",background:"#fff",color:"#333",border:"1.5px solid #E2E8F0",borderRadius:14,fontSize:15,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"},
+  tOn:{width:"100%",padding:"13px",background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",color:"#fff",border:"none",borderRadius:14,fontSize:15,fontWeight:600,cursor:"pointer"},
+  tOff:{width:"100%",padding:"13px",background:"#fff",color:"#333",border:"1.5px solid #E2E8F0",borderRadius:14,fontSize:15,fontWeight:600,cursor:"pointer"},
+  smBtn:{padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:600,border:"none",cursor:"pointer"},
+
+  pillOn:{display:"flex",alignItems:"center",padding:"7px 14px",background:"#2F80ED",color:"#fff",border:"none",borderRadius:20,cursor:"pointer",whiteSpace:"nowrap"},
+  pillOff:{display:"flex",alignItems:"center",padding:"7px 14px",background:"#fff",color:"#333",border:"1.5px solid #E2E8F0",borderRadius:20,cursor:"pointer",whiteSpace:"nowrap"},
+
+  card:{background:"#fff",borderRadius:16,padding:18,boxShadow:"0 1px 3px rgba(0,0,0,.04)"},
+  bRow:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderTop:"1px solid #F1F5F9"},
+  statBox:{background:"#F8FAFC",borderRadius:12,padding:"14px 16px",textAlign:"center"},
+  turnover:{background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",borderRadius:14,padding:"14px 20px",textAlign:"center"},
+
+  ptOn:{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"11px 14px",background:"#2F80ED",color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer"},
+  ptOff:{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"11px 14px",background:"#fff",color:"#333",border:"1.5px solid #E2E8F0",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer"},
+  circS:{width:30,height:30,borderRadius:15,background:"#fff",border:"1px solid #E2E8F0",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"},
+
+  nav:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:400,display:"flex",justifyContent:"space-around",padding:"6px 0 10px",background:"#fff",borderTop:"1px solid #E8E8E8",zIndex:100},
+  navBtn:{display:"flex",flexDirection:"column",alignItems:"center",background:"none",border:"none",cursor:"pointer",padding:"2px 10px"},
+  navOn:{width:42,height:42,borderRadius:21,background:"#2F80ED",display:"flex",alignItems:"center",justifyContent:"center"},
+  navOff:{width:42,height:42,display:"flex",alignItems:"center",justifyContent:"center"},
+
+  ov:{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},
+  sh:{width:"100%",maxWidth:400,background:"#fff",borderRadius:"20px 20px 0 0",maxHeight:"88vh",overflowY:"auto"},
+  xBtn:{width:28,height:28,borderRadius:14,background:"#F1F5F9",border:"none",fontSize:18,color:"#64748B",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",lineHeight:1},
+  backL:{background:"none",border:"none",color:"#2F80ED",fontSize:14,fontWeight:500,padding:"0 20px 10px",cursor:"pointer"},
+  sT:{fontSize:15,fontWeight:500,color:"#333",textAlign:"center",margin:"0 0 18px"},
+  curCell:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"18px 10px",background:"#F8FAFC",border:"1.5px solid #E2E8F0",borderRadius:14,cursor:"pointer"},
+  inpRow:{display:"flex",alignItems:"center",border:"1.5px solid #E2E8F0",borderRadius:12,padding:"11px 14px",gap:8},
+  inp:{flex:1,border:"none",outline:"none",fontSize:16,fontWeight:500,color:"#333",background:"transparent"},
+  ta:{width:"100%",border:"1.5px solid #E2E8F0",borderRadius:12,padding:"12px 14px",fontSize:14,color:"#333",resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box"},
+};
