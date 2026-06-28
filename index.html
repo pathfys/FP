@@ -21,8 +21,15 @@
   <div id="err"></div>
   <div id="root"></div>
 
-  <!-- App source stored as text, compiled manually for full control over Babel presets -->
-  <script type="text/plain" id="app-source">
+  <script type="text/babel" data-type="module" data-presets="react">
+const { useState, useEffect } = React;
+
+// surface any runtime error on screen instead of a blank page
+window.addEventListener('error', function (ev) {
+  var box = document.getElementById('err');
+  if (box) { box.style.display='block'; box.textContent = 'Ошибка:\n' + (ev.message || ev.error); }
+});
+
 
 
 /* ════════════════════════════════════════════
@@ -576,35 +583,15 @@ const S = {
   ta:{width:"100%",border:"1.5px solid #E2E8F0",borderRadius:12,padding:"12px 14px",fontSize:14,color:"#333",resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box"},
 };
 
-  </script>
 
-  <script>
-    (function () {
-      try {
-        var src = document.getElementById('app-source').textContent;
-        var out = Babel.transform(src, {
-          presets: ['react'],
-          plugins: [
-            'proposal-optional-chaining',
-            'proposal-nullish-coalescing-operator'
-          ]
-        }).code;
-        var fn = new Function('React', 'ReactDOM', out + '\nreturn App;');
-        var App = fn(React, ReactDOM);
-        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
-        try {
-          if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
-          }
-        } catch (e) {}
-      } catch (e) {
-        var box = document.getElementById('err');
-        box.style.display = 'block';
-        box.textContent = 'Ошибка запуска:\n\n' + (e && e.message ? e.message : e) + '\n\n' + (e && e.stack ? e.stack : '');
-        console.error(e);
-      }
-    })();
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+try {
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.ready();
+    window.Telegram.WebApp.expand();
+  }
+} catch (e) {}
   </script>
 </body>
 </html>
