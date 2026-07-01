@@ -16,20 +16,25 @@
     input, textarea, button { font-family: inherit; }
     #err { display:none; padding:20px; margin:20px; background:#FEF2F2; border:1px solid #FCA5A5; border-radius:12px; color:#B91C1C; font-size:13px; white-space:pre-wrap; font-family:monospace; }
 
-    body.dark { background:#0B1220; }
-    body.dark #root { background:#0B1220; }
+    /* Chromium сериализует инлайн-цвета в rgb(...), поэтому матчим rgb() c префиксом свойства */
+    body.dark, body.dark #root { background:#0B1220 !important; }
     body.dark h1, body.dark h2, body.dark h3 { color:#F1F5F9 !important; }
-    body.dark [style*="background: rgb(255, 255, 255)"],
-    body.dark [style*="background:#fff"],
-    body.dark [style*="background: #fff"],
-    body.dark [style*="background:rgb(255,255,255)"] { background:#162033 !important; }
-    body.dark [style*="color: rgb(51, 51, 51)"],
-    body.dark [style*="color:#333"],
-    body.dark [style*="color: #333"],
-    body.dark [style*="color:#111"],
-    body.dark [style*="color: rgb(17, 17, 17)"] { color:#E2E8F0 !important; }
-    body.dark [style*="#F8FAFC"] { background:#1B2740 !important; }
-    body.dark [style*="#E2E8F0"] { border-color:#2A3852 !important; }
+    /* фон приложения/страниц #F1F5F9 */
+    body.dark [style*="background: rgb(241, 245, 249)"] { background:#0B1220 !important; }
+    /* белые карточки/панели/меню/шторки #fff */
+    body.dark [style*="background: rgb(255, 255, 255)"] { background:#162033 !important; }
+    /* светлые панели #F8FAFC */
+    body.dark [style*="background: rgb(248, 250, 252)"] { background:#182234 !important; }
+    /* светло-голубые акценты #EFF6FF */
+    body.dark [style*="background: rgb(239, 246, 255)"] { background:#17233B !important; }
+    /* тёмный текст #111 / #333 → светлый */
+    body.dark [style*="color: rgb(17, 17, 17)"],
+    body.dark [style*="color: rgb(51, 51, 51)"] { color:#E2E8F0 !important; }
+    /* приглушённый текст #64748B → светлее */
+    body.dark [style*="color: rgb(100, 116, 139)"] { color:#94A3B8 !important; }
+    /* границы #E2E8F0 / #E8E8E8 */
+    body.dark [style*="rgb(226, 232, 240)"],
+    body.dark [style*="rgb(232, 232, 232)"] { border-color:#2A3852 !important; }
     body.dark input, body.dark textarea { background:#162033 !important; color:#E2E8F0 !important; }
 
     /* ── ANIMATIONS ── */
@@ -201,7 +206,7 @@ function App() {
   const openedDeal = deals.find(d => d.id === openDealId) || null;
 
   useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
-  useEffect(() => { const t = setTimeout(() => setBoot(false), 2200); return () => clearTimeout(t); }, []);
+  useEffect(() => { const t = setTimeout(() => setBoot(false), 5000); return () => clearTimeout(t); }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -310,38 +315,50 @@ function App() {
       {shareDeal  && <MShareDeal deal={shareDeal} buyer={shareDeal.buyer || tgUser.username} onClose={() => setShareDeal(null)} />}
       {payDeal    && <MPayDeal deal={payDeal} onPaid={(id) => updDeal(id, "paid")} onClose={() => setPayDeal(null)} />}
       {showLang && <MLang cur={lang} onPick={l => { setLang(l); setShowLang(false); }} onClose={() => setShowLang(false)} />}
-      <Splash done={!boot} />
+      <Splash done={!boot} onDone={() => setBoot(false)} />
     </div>
   );
 }
 
 /* ══════════════════════════════════
-   SPLASH / LOADING SCREEN
+   SPLASH / LOADING SCREEN (видео)
    ══════════════════════════════════ */
-function Splash({ done }) {
+// Положи welcome_video.mp4 рядом с index.html (или укажи прямой URL). Пусто — покажется лого.
+const SPLASH_VIDEO = "welcome_video.mp4";
+
+function Splash({ done, onDone }) {
+  const [failed, setFailed] = useState(false);
+  const useVideo = SPLASH_VIDEO && !failed;
   return (
     <div style={{
-      position:"fixed", inset:0, zIndex:9999,
+      position:"fixed", inset:0, zIndex:9999, overflow:"hidden",
       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-      background:"linear-gradient(160deg,#0B1220 0%,#0F2A5A 100%)",
+      background:"#0B1220",
       transition:"opacity .5s ease", opacity: done ? 0 : 1, pointerEvents: done ? "none" : "auto",
     }}>
-      <div style={{
-        width:96, height:96, borderRadius:28, animation:"pop .6s ease",
-        background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        boxShadow:"0 16px 48px rgba(47,128,237,.55)",
-      }}>
-        <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="8.5" width="18" height="12.5" rx="2" stroke="#fff" strokeWidth="1.7"/>
-          <path d="M3 12.5h18M12 8.5V21" stroke="#fff" strokeWidth="1.7"/>
-          <path d="M12 8.5S11 4 8.6 4 6.4 7.6 9 8.5m3 0S13 4 15.4 4 17.6 7.6 15 8.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
-        </svg>
-      </div>
-      <div style={{marginTop:22, fontSize:32, fontWeight:800, color:"#fff", letterSpacing:.5}}>FunPay</div>
-      <div style={{marginTop:6, fontSize:13, color:"#93C5FD"}}>P2P-сделки с гарантом</div>
-      <div style={{marginTop:28, width:36, height:36, borderRadius:"50%",
-        border:"3px solid rgba(255,255,255,.18)", borderTopColor:"#fff", animation:"spin 1s linear infinite"}}/>
+      {useVideo
+        ? <video
+            src={SPLASH_VIDEO} autoPlay muted playsInline
+            onEnded={() => onDone && onDone()}
+            onError={() => setFailed(true)}
+            style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover"}}
+          />
+        : <div style={{textAlign:"center"}}>
+            <div style={{width:96, height:96, borderRadius:28, animation:"pop .6s ease", margin:"0 auto",
+              background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow:"0 16px 48px rgba(47,128,237,.55)"}}>
+              <svg width="52" height="52" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="8.5" width="18" height="12.5" rx="2" stroke="#fff" strokeWidth="1.7"/>
+                <path d="M3 12.5h18M12 8.5V21" stroke="#fff" strokeWidth="1.7"/>
+                <path d="M12 8.5S11 4 8.6 4 6.4 7.6 9 8.5m3 0S13 4 15.4 4 17.6 7.6 15 8.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div style={{marginTop:22, fontSize:32, fontWeight:800, color:"#fff", letterSpacing:.5}}>FunPay</div>
+            <div style={{marginTop:6, fontSize:13, color:"#93C5FD"}}>P2P-сделки с гарантом</div>
+            <div style={{margin:"28px auto 0", width:36, height:36, borderRadius:"50%",
+              border:"3px solid rgba(255,255,255,.18)", borderTopColor:"#fff", animation:"spin 1s linear infinite"}}/>
+          </div>}
     </div>
   );
 }
