@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Escrow — P2P сделки</title>
+  <title>FunPay — P2P сделки</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -16,26 +16,20 @@
     input, textarea, button { font-family: inherit; }
     #err { display:none; padding:20px; margin:20px; background:#FEF2F2; border:1px solid #FCA5A5; border-radius:12px; color:#B91C1C; font-size:13px; white-space:pre-wrap; font-family:monospace; }
 
-    /* ── DARK THEME ── overrides inline light colors via filter on content layers */
     body.dark { background:#0B1220; }
     body.dark #root { background:#0B1220; }
     body.dark h1, body.dark h2, body.dark h3 { color:#F1F5F9 !important; }
-    /* recolor white cards / surfaces */
     body.dark [style*="background: rgb(255, 255, 255)"],
     body.dark [style*="background:#fff"],
     body.dark [style*="background: #fff"],
     body.dark [style*="background:rgb(255,255,255)"] { background:#162033 !important; }
-    /* dark text → light */
     body.dark [style*="color: rgb(51, 51, 51)"],
     body.dark [style*="color:#333"],
     body.dark [style*="color: #333"],
     body.dark [style*="color:#111"],
     body.dark [style*="color: rgb(17, 17, 17)"] { color:#E2E8F0 !important; }
-    /* light grey panels (#F8FAFC) */
     body.dark [style*="#F8FAFC"] { background:#1B2740 !important; }
-    /* borders */
     body.dark [style*="#E2E8F0"] { border-color:#2A3852 !important; }
-    /* nav + modal sheets stay readable */
     body.dark input, body.dark textarea { background:#162033 !important; color:#E2E8F0 !important; }
   </style>
 </head>
@@ -46,13 +40,10 @@
   <script type="text/babel" data-type="module" data-presets="react">
 const { useState, useEffect } = React;
 
-// surface any runtime error on screen instead of a blank page
 window.addEventListener('error', function (ev) {
   var box = document.getElementById('err');
   if (box) { box.style.display='block'; box.textContent = 'Ошибка:\n' + (ev.message || ev.error); }
 });
-
-
 
 /* ════════════════════════════════════════════
    CURRENCY ICON COMPONENTS
@@ -66,7 +57,6 @@ const CI = ({ bg, children, size = 36 }) => (
   }}>{children}</div>
 );
 
-// consistent currency-symbol renderer
 const Sym = ({ s, f = 0.46, children }) => (
   <span style={{ fontSize: s * f, fontWeight: 700, lineHeight: 1, fontFamily: "Arial, sans-serif" }}>{children}</span>
 );
@@ -95,10 +85,61 @@ const icon = (code, size = 36) => {
   return fn ? fn(size) : <CI bg="#94A3B8" size={size}><span>{code?.[0] ?? "?"}</span></CI>;
 };
 
-/* currency lists */
 const ALL_CUR = ["GRAM","USDT","BTC","ETH","USD","EUR","RUB","UAH","CNY","AED","KZT","GBP","STARS"];
 const DEAL_CUR = ["GRAM","USDT","STARS","RUB","UAH","CNY","AED","EUR","USD","KZT","GBP","BTC","ETH"];
 const WALL_TABS = ["GRAM","USDT","STARS","BTC","ETH","RUB"];
+
+/* ════════════════════════════════════════════
+   ESCROW / SHARE CONFIG + HELPERS
+   ════════════════════════════════════════════ */
+const BOT_USERNAME   = "FunPayDeal_Robot";     // имя бота без @ (deep-link)
+const ESCROW_MANAGER = "@FunPayRelayer";
+const COMMISSION     = 0.01;                    // 1%
+
+const genCode = () =>
+  Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
+const dealLink = (code) => `https://t.me/${BOT_USERNAME}?start=${code}`;
+
+const ESCROW_STEPS = ["Создана","Покупатель","Оплачена","В эскроу","Получена"];
+const STATUS_STEP  = { created:1, joined:2, paid:3, escrow:4, received:5, cancelled:0 };
+
+const STATUS_TEXT = {
+  created:"Ожидание оплаты", joined:"Ожидание оплаты",
+  paid:"Оплачено · передача товара", escrow:"В эскроу",
+  received:"Завершена", cancelled:"Отменена",
+};
+const NOW_TEXT = {
+  created:"Ожидаем продавца. Поделитесь ссылкой, чтобы он присоединился к сделке.",
+  joined:"Продавец присоединился. Внесите оплату — средства попадут в эскроу.",
+  paid:"Оплата в эскроу. Ожидаем передачу товара менеджеру " + ESCROW_MANAGER + ".",
+  escrow:"Товар у менеджера-эскроу. Подтвердите получение, когда получите его.",
+  received:"Сделка успешно завершена. Спасибо!",
+  cancelled:"Сделка отменена.",
+};
+
+const fmtDate = (d) => {
+  const p = (n) => String(n).padStart(2,"0");
+  const x = new Date(d);
+  return `${p(x.getDate())}.${p(x.getMonth()+1)}.${x.getFullYear()}, ${p(x.getHours())}:${p(x.getMinutes())}:${p(x.getSeconds())}`;
+};
+
+const SHARE_LANGS = [
+  {code:"ru",ab:"RU",sub:"RU"},{code:"en",ab:"GB",sub:"EN"},{code:"uk",ab:"UA",sub:"UK"},
+  {code:"ar",ab:"SA",sub:"AR"},{code:"zh",ab:"CN",sub:"ZH"},
+];
+
+function buildDealText(deal, buyer, lang) {
+  const b = buyer || "—", A = `${deal.amount} ${deal.currency}`, D = deal.description;
+  const M = ESCROW_MANAGER, L = dealLink(deal.code);
+  const T = {
+    ru:`🛡 Безопасная сделка #${deal.code}\nОт: ${b}\nЯ покупаю у вас: ${D}\nСумма: ${A}\nМенеджер-эскроу: ${M}\n\nКак пройдёт сделка:\n1. Я (покупатель) оплачиваю сумму внутри Mini App.\n2. Вы (продавец) передаёте товар менеджеру ${M}.\n3. Менеджер вручает товар мне.\n4. Вы получаете оплату на свой баланс.\n\nОткрыть сделку (для продавца):\n${L}`,
+    en:`🛡 Secure deal #${deal.code}\nFrom: ${b}\nI'm buying from you: ${D}\nAmount: ${A}\nEscrow manager: ${M}\n\nHow it works:\n1. I (buyer) pay inside the Mini App.\n2. You (seller) hand the item to ${M}.\n3. The manager delivers it to me.\n4. You receive the payment.\n\nOpen the deal (for the seller):\n${L}`,
+    uk:`🛡 Безпечна угода #${deal.code}\nВід: ${b}\nЯ купую у вас: ${D}\nСума: ${A}\nМенеджер-ескроу: ${M}\n\nЯк пройде угода:\n1. Я (покупець) сплачую в Mini App.\n2. Ви (продавець) передаєте товар ${M}.\n3. Менеджер вручає товар мені.\n4. Ви отримуєте оплату.\n\nВідкрити угоду (для продавця):\n${L}`,
+    ar:`🛡 صفقة آمنة #${deal.code}\nمن: ${b}\nأشتري منك: ${D}\nالمبلغ: ${A}\nمدير الضمان: ${M}\n\nكيف تتم:\n1. أنا (المشتري) أدفع داخل التطبيق.\n2. أنت (البائع) تسلّم السلعة إلى ${M}.\n3. المدير يسلّمني السلعة.\n4. تستلم المبلغ إلى رصيدك.\n\nافتح الصفقة (للبائع):\n${L}`,
+    zh:`🛡 安全交易 #${deal.code}\n来自: ${b}\n我向您购买: ${D}\n金额: ${A}\n托管经理: ${M}\n\n流程:\n1. 我（买家）在 Mini App 内付款。\n2. 您（卖家）把物品交给 ${M}。\n3. 经理把物品交给我。\n4. 您收到款项。\n\n打开交易（卖家）:\n${L}`,
+  };
+  return T[lang] || T.ru;
+}
 
 /* ════════════════════════════════════════════
    NAV SVG ICONS
@@ -122,13 +163,15 @@ function App() {
   const [dark, setDark] = useState(false);
   const [tgUser] = useState(() => getTgUser());
 
-  /* apply/remove dark class on <body> */
-  useEffect(() => {
-    document.body.classList.toggle("dark", dark);
-  }, [dark]);
+  const [safetyDeal, setSafetyDeal] = useState(null);  // ждёт подтверждения безопасности
+  const [openDealId, setOpenDealId] = useState(null);  // открытая карточка сделки
+  const [shareDeal, setShareDeal] = useState(null);
+  const [payDeal, setPayDeal] = useState(null);
+  const openedDeal = deals.find(d => d.id === openDealId) || null;
 
-  /* ── fetch live exchange rates ── */
- useEffect(() => {
+  useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
+
+  useEffect(() => {
     const load = async () => {
       try {
         const [cr, fr] = await Promise.all([
@@ -160,32 +203,34 @@ function App() {
     return () => clearInterval(t);
   }, []);
 
-  /* ── deal stats (auto-update) ── */
   const stats = {
     total: deals.length,
-    success: deals.filter(d => d.status === "success").length,
-    completed: deals.filter(d => d.status === "completed").length,
+    success: deals.filter(d => d.status === "received").length,
+    completed: deals.filter(d => d.status === "received").length,
     cancelled: deals.filter(d => d.status === "cancelled").length,
-    volume: deals.reduce((s, d) => s + (d.usd || 0), 0),
+    volume: deals.filter(d => d.status === "received").reduce((s, d) => s + (d.usd || 0), 0),
   };
 
-  /* ── balances (auto from deals) ── */
   const bals = {};
   ALL_CUR.forEach(c => bals[c] = 0);
-  deals.forEach(d => {
-    if (d.status !== "cancelled") {
-      bals[d.currency] = (bals[d.currency] || 0) + (d.type === "Покупка" ? 1 : -1) * parseFloat(d.amount);
-    }
-  });
 
-  const addDeal = (deal) => {
+  /* создание сделки: подтверждение → экран безопасности → финализация */
+  const onCreateConfirm = (deal) => { setShowCreate(false); setSafetyDeal(deal); };
+  const finalizeDeal = () => {
+    const deal = safetyDeal;
+    setSafetyDeal(null);
+    if (!deal) return;
     const usd = parseFloat(deal.amount) * usdRate(deal.currency, rates);
-    setDeals(p => [...p, { ...deal, id: Date.now(), status: "active", usd, at: new Date() }]);
-    setShowCreate(false);
+    const nd = {
+      ...deal, id: Date.now(), code: genCode(), status: "created", usd, at: new Date(),
+      buyer: tgUser.username || tgUser.name, seller: "",
+    };
+    setDeals(p => [...p, nd]);
+    setOpenDealId(nd.id);
   };
   const updDeal = (id, st) => setDeals(p => p.map(d => d.id === id ? { ...d, status: st } : d));
 
-const RATE_ROWS = [
+  const RATE_ROWS = [
     { pair:"GRAM/USD", ic:"GRAM" },{ pair:"BTC/USD", ic:"BTC" },{ pair:"ETH/USD", ic:"ETH" },
     { pair:"USDT/RUB", ic:"USDT" },{ pair:"USD/RUB", ic:"USD" },{ pair:"EUR/USD", ic:"EUR" },
     { pair:"GBP/USD", ic:"GBP" },{ pair:"UAH/USD", ic:"UAH" },{ pair:"CNY/USD", ic:"CNY" },
@@ -200,31 +245,42 @@ const RATE_ROWS = [
       </div>
 
       <div style={S.body}>
-        {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onUpd={updDeal} />}
-        {tab === "wallets"  && <PgWall />}
-        {tab === "leaders"  && <PgLead />}
-        {tab === "profile"  && <PgProf user={tgUser} stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
+        {openedDeal
+          ? <DealView deal={openedDeal} me={tgUser.username} onUpd={updDeal}
+                      onShare={() => setShareDeal(openedDeal)} onPay={() => setPayDeal(openedDeal)}
+                      onClose={() => setOpenDealId(null)} />
+          : <>
+              {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onOpenDeal={setOpenDealId} />}
+              {tab === "wallets"  && <PgWall />}
+              {tab === "leaders"  && <PgLead />}
+              {tab === "profile"  && <PgProf user={tgUser} stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
+            </>}
       </div>
 
-      <nav style={S.nav}>
-        {[{id:"deals",l:"Сделки",I:NDeals},{id:"wallets",l:"Кошельки",I:NWall},{id:"leaders",l:"Лидеры",I:NLead},{id:"profile",l:"Профиль",I:NProf}].map(t => {
-          const on = tab === t.id;
-          return (
-            <button key={t.id} style={S.navBtn} onClick={() => setTab(t.id)}>
-              <div style={on ? S.navOn : S.navOff}><t.I c={on?"#fff":"#8E8E93"}/></div>
-              <span style={{fontSize:10,color:on?"#2F80ED":"#8E8E93",marginTop:2}}>{t.l}</span>
-            </button>
-          );
-        })}
-      </nav>
+      {!openedDeal && (
+        <nav style={S.nav}>
+          {[{id:"deals",l:"Сделки",I:NDeals},{id:"wallets",l:"Кошельки",I:NWall},{id:"leaders",l:"Лидеры",I:NLead},{id:"profile",l:"Профиль",I:NProf}].map(t => {
+            const on = tab === t.id;
+            return (
+              <button key={t.id} style={S.navBtn} onClick={() => setTab(t.id)}>
+                <div style={on ? S.navOn : S.navOff}><t.I c={on?"#fff":"#8E8E93"}/></div>
+                <span style={{fontSize:10,color:on?"#2F80ED":"#8E8E93",marginTop:2}}>{t.l}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
-      {showCreate && <MCreateDeal onClose={() => setShowCreate(false)} onDone={addDeal} />}
+      {showCreate && <MCreateDeal onClose={() => setShowCreate(false)} onDone={onCreateConfirm} />}
+      {safetyDeal && <MSafety onClose={() => setSafetyDeal(null)} onConfirm={finalizeDeal} />}
+      {shareDeal  && <MShareDeal deal={shareDeal} buyer={shareDeal.buyer || tgUser.username} onClose={() => setShareDeal(null)} />}
+      {payDeal    && <MPayDeal deal={payDeal} onPaid={(id) => updDeal(id, "paid")} onClose={() => setPayDeal(null)} />}
       {showLang && <MLang cur={lang} onPick={l => { setLang(l); setShowLang(false); }} onClose={() => setShowLang(false)} />}
     </div>
   );
 }
 
-        /* ── данные пользователя из Telegram WebApp ── */
+/* ── данные пользователя из Telegram WebApp ── */
 function getTgUser() {
   try {
     const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -240,9 +296,7 @@ function getTgUser() {
   } catch (e) {}
   return { name: "slap", username: "@slapgramm", photo: "", initial: "S" };
 }
-/* ══════════════════════════════════
-   HELPERS
-   ══════════════════════════════════ */
+
 function usdRate(currency, rates) {
   if (currency === "USD" || currency === "USDT") return rates["USDT/USD"] || 1;
   const d = rates[currency + "/USD"];
@@ -253,17 +307,15 @@ function usdRate(currency, rates) {
   }
   return 1;
 }
-    
 
 /* ══════════════════════════════════
    PAGE: DEALS
    ══════════════════════════════════ */
-function PgDeals({ deals, onOpen, onUpd }) {
+function PgDeals({ deals, onOpen, onOpenDeal }) {
   const [sub, setSub] = useState("active");
-  const active = deals.filter(d => d.status === "active");
-  const hist = deals.filter(d => d.status !== "active");
+  const active = deals.filter(d => !["received","cancelled"].includes(d.status));
+  const hist = deals.filter(d => ["received","cancelled"].includes(d.status));
   const list = sub === "active" ? active : hist;
-  const [tgUser] = useState(() => getTgUser());
 
   return (
     <div style={S.page}>
@@ -276,18 +328,20 @@ function PgDeals({ deals, onOpen, onUpd }) {
       <div style={{marginTop:16}}>
         {list.length === 0
           ? <p style={S.empty}>{sub==="active" ? "Нет активных сделок" : "Нет завершённых сделок"}</p>
-          : list.map(d => <DealCard key={d.id} d={d} onComplete={() => onUpd(d.id,"completed")} onCancel={() => onUpd(d.id,"cancelled")} />)
+          : list.map(d => <DealCard key={d.id} d={d} onClick={() => onOpenDeal(d.id)} />)
         }
       </div>
     </div>
   );
 }
 
-function DealCard({ d, onComplete, onCancel }) {
-  const col = d.status==="completed"?"#16A34A":d.status==="cancelled"?"#EF4444":"#2F80ED";
-  const lbl = d.status==="completed"?"Завершена":d.status==="cancelled"?"Отменена":"Активна";
+function DealCard({ d, onClick }) {
+  const map = { received:["Завершена","#16A34A"], cancelled:["Отменена","#EF4444"],
+                paid:["Оплачена","#0EA5E9"], escrow:["В эскроу","#8B5CF6"],
+                joined:["Ожидание оплаты","#F59E0B"], created:["Ожидание продавца","#2F80ED"] };
+  const [lbl, col] = map[d.status] || map.created;
   return (
-    <div style={{...S.card, marginBottom:10}}>
+    <div style={{...S.card, marginBottom:10, cursor:"pointer"}} onClick={onClick}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {icon(d.currency, 28)}
@@ -295,18 +349,139 @@ function DealCard({ d, onComplete, onCancel }) {
         </div>
         <span style={{fontSize:11,fontWeight:600,color:col,background:col+"14",padding:"3px 10px",borderRadius:20}}>{lbl}</span>
       </div>
+      {d.code && <div style={{fontSize:11,color:"#94A3B8",marginBottom:6}}>#{d.code}</div>}
       <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:"#64748B"}}>
         <span>{d.amount} {d.currency}</span>
         <span style={{fontSize:12,color:"#94A3B8",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.description}</span>
       </div>
-      {d.status === "active" && (
-        <div style={{display:"flex",gap:8,marginTop:10}}>
-          <button style={{...S.smBtn,background:"#16A34A",color:"#fff"}} onClick={onComplete}>✓ Завершить</button>
-          <button style={{...S.smBtn,background:"#fff",color:"#EF4444",border:"1px solid #FCA5A5"}} onClick={onCancel}>✕ Отменить</button>
-        </div>
-      )}
     </div>
   );
+}
+
+/* ══════════════════════════════════
+   ESCROW PROGRESS BAR
+   ══════════════════════════════════ */
+function EscrowSteps({ status }) {
+  const cur = STATUS_STEP[status] ?? 1;
+  return (
+    <div style={{position:"relative",padding:"4px 0 2px"}}>
+      <div style={{position:"absolute",top:11,left:"10%",right:"10%",height:3,background:"#E2E8F0",borderRadius:2}}/>
+      <div style={{display:"flex",justifyContent:"space-between",position:"relative"}}>
+        {ESCROW_STEPS.map((label, i) => {
+          const n = i + 1;
+          const done = n <= cur && status !== "cancelled";
+          return (
+            <div key={label} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}>
+              <div style={{
+                width:16,height:16,borderRadius:8,zIndex:1,
+                background: done ? "#22C55E" : "#CBD5E1",
+                boxShadow: n === cur && done ? "0 0 0 4px rgba(34,197,94,.2)" : "none",
+              }}/>
+              <span style={{fontSize:9,marginTop:6,color: done ? "#16A34A" : "#94A3B8",textAlign:"center",lineHeight:1.2,maxWidth:52}}>{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════
+   DEAL VIEW (full page)
+   ══════════════════════════════════ */
+function DealView({ deal, me, onUpd, onShare, onPay, onClose }) {
+  const cur = STATUS_STEP[deal.status] ?? 1;
+  const amt = parseFloat(deal.amount) || 0;
+  const fee = amt * COMMISSION;
+  const total = amt + fee;
+
+  return (
+    <div style={{...S.page, paddingTop:16}}>
+      <button style={S.backL} onClick={onClose}>‹ Назад</button>
+      <h1 style={{...S.h1, wordBreak:"break-all", fontSize:22}}>#{deal.code}</h1>
+
+      <div style={{...S.card, background:"#F8FAFC"}}>
+        <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Статус сделки</p>
+        <p style={{fontSize:16,fontWeight:700,color:"#111",margin:"0 0 16px"}}>
+          Шаг <span style={{color:"#22C55E"}}>{cur}</span> из 5 — {ESCROW_STEPS[Math.max(0,cur-1)]}
+        </p>
+        <EscrowSteps status={deal.status}/>
+        <p style={{fontSize:11,color:"#94A3B8",textAlign:"center",margin:"14px 0 0"}}>Безопасно через Telegram</p>
+      </div>
+
+      <div style={{...S.card, marginTop:12, display:"flex",alignItems:"center",gap:14}}>
+        {icon(deal.currency, 44)}
+        <div style={{minWidth:0}}>
+          <p style={{fontSize:22,fontWeight:800,color:"#111",margin:0}}>{deal.amount} {deal.currency}</p>
+          <p style={{fontSize:13,color:"#94A3B8",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deal.description}</p>
+        </div>
+      </div>
+
+      <div style={{...S.card, marginTop:12}}>
+        {[["Статус", STATUS_TEXT[deal.status] || "Ожидание оплаты", false],
+          ["Продавец", deal.seller || "Не задан", false],
+          ["Покупатель", (deal.buyer || "—") + (deal.buyer === me ? " (Вы)" : ""), true],
+          ["Создана", fmtDate(deal.at), false]].map(([k,v,hl],i)=>(
+          <div key={k} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"11px 0",borderTop:i?"1px solid #F1F5F9":"none",fontSize:14}}>
+            <span style={{color:"#94A3B8",flexShrink:0}}>{k}</span>
+            <span style={{fontWeight:600,color: hl ? "#2F80ED" : "#111",textAlign:"right"}}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{...S.card, marginTop:12}}>
+        <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Сейчас</p>
+        <p style={{fontSize:14,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>{NOW_TEXT[deal.status]}</p>
+        <DealActions deal={deal} onUpd={onUpd} onShare={onShare} onPay={onPay}/>
+      </div>
+
+      <div style={{...S.card, marginTop:12, marginBottom:20}}>
+        {[["К оплате", `${amt} ${deal.currency}`],
+          [`Комиссия ${(COMMISSION*100)}%`, `${fee.toFixed(2)} ${deal.currency}`],
+          ["Всего", `${total.toFixed(2)} ${deal.currency}`]].map(([k,v],i)=>(
+          <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderTop:i?"1px solid #F1F5F9":"none",fontSize:14}}>
+            <span style={{color:"#94A3B8"}}>{k}</span>
+            <span style={{fontWeight:700,color:"#111"}}>{v}</span>
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",borderTop:"1px solid #F1F5F9",fontSize:14}}>
+          <span style={{color:"#94A3B8"}}>Ваш баланс</span>
+          <span style={{fontWeight:700,color:"#EF4444"}}>0 {deal.currency}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DealActions({ deal, onUpd, onShare, onPay }) {
+  const cancelBtn = (
+    <button style={{...S.oBtn, color:"#EF4444", borderColor:"#FCA5A5"}} onClick={() => onUpd(deal.id, "cancelled")}>Отменить сделку</button>
+  );
+  switch (deal.status) {
+    case "created":
+      return (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <Btn onClick={onShare}>🔗 Поделиться сделкой</Btn>
+          <OBtn onClick={() => onUpd(deal.id, "joined")}>Продавец присоединился (демо)</OBtn>
+          {cancelBtn}
+        </div>
+      );
+    case "joined":
+      return (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <Btn onClick={onPay}>💳 Внести оплату</Btn>
+          {cancelBtn}
+        </div>
+      );
+    case "paid":
+      return <Btn onClick={() => onUpd(deal.id, "escrow")}>Товар передан в эскроу</Btn>;
+    case "escrow":
+      return <Btn onClick={() => onUpd(deal.id, "received")}>✓ Подтвердить получение</Btn>;
+    case "received":
+      return <p style={{textAlign:"center",color:"#16A34A",fontWeight:700,margin:0}}>✅ Сделка завершена</p>;
+    default:
+      return <p style={{textAlign:"center",color:"#EF4444",fontWeight:700,margin:0}}>❌ Сделка отменена</p>;
+  }
 }
 
 /* ══════════════════════════════════
@@ -392,7 +567,6 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
         </div>
       </div>
 
-    {/* avatar */}
       <div style={{textAlign:"center",margin:"16px 0 20px"}}>
         <div style={{width:84,height:84,borderRadius:42,border:"2.5px solid #2F80ED",margin:"0 auto",overflow:"hidden",background:"#EFF6FF",display:"flex",alignItems:"center",justifyContent:"center"}}>
           {user.photo
@@ -404,7 +578,6 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
         {user.username && <p style={{fontSize:14,color:"#94A3B8",margin:0}}>{user.username}</p>}
       </div>
 
-      {/* tabs */}
       <div style={{display:"flex",gap:10,marginBottom:20}}>
         <button style={pt==="transactions"?S.ptOn:S.ptOff} onClick={() => setPt("transactions")}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>
@@ -416,7 +589,6 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
         </button>
       </div>
 
-      {/* balances */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <p style={{fontSize:15,fontWeight:600,color:"#333",margin:0}}>Балансы</p>
@@ -435,7 +607,6 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
         ))}
       </div>
 
-      {/* stats */}
       <div style={{...S.card,marginTop:14}}>
         <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Статистика сделок</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
@@ -452,7 +623,6 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
         </div>
       </div>
 
-      {/* rates */}
       <div style={{...S.card,marginTop:14}}>
         <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Курсы валют</p>
         {rateRows.map(r => (
@@ -543,6 +713,136 @@ function MCreateDeal({ onClose, onDone }) {
 }
 
 /* ══════════════════════════════════
+   MODAL: SAFETY (10s countdown)
+   ══════════════════════════════════ */
+function MSafety({ onClose, onConfirm }) {
+  const [left, setLeft] = useState(10);
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = setTimeout(() => setLeft(left - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left]);
+  const ready = left <= 0;
+  const rules = [
+    ["✅", <span>Передавайте подарок <b>ТОЛЬКО</b> на аккаунт <span style={{color:"#2F80ED"}}>{ESCROW_MANAGER}</span></span>, "#DCFCE7"],
+    ["⛔", <span><b>НИКОГДА</b> не отправляйте напрямую покупателю</span>, "#FEE2E2"],
+    ["⚠️", <span>Даже если покупатель уговаривает — <b>НЕ ДЕЛАЙТЕ ЭТОГО!</b></span>, "#FEF3C7"],
+  ];
+  return (
+    <Ov onClose={ready ? onClose : undefined}><Sh>
+      <div style={{padding:"22px 20px 24px"}}>
+        <div style={{textAlign:"center",marginBottom:14}}>
+          <div style={{width:56,height:56,borderRadius:28,background:"#FEE2E2",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+            <span style={{fontSize:26}}>⚠️</span>
+          </div>
+          <h3 style={{fontSize:18,fontWeight:800,margin:"12px 0 0",color:"#111"}}>Безопасность сделки</h3>
+        </div>
+        <p style={{fontSize:12.5,fontWeight:800,color:"#EF4444",margin:"0 0 10px"}}>❗ ВНИМАНИЕ! ВАЖНАЯ ИНФОРМАЦИЯ О БЕЗОПАСНОСТИ</p>
+        <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+          <p style={{fontSize:13,fontWeight:700,color:"#B91C1C",margin:0}}>⚠️ Участились случаи мошенничества!</p>
+        </div>
+        <p style={{fontSize:13,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>Мошенники возвращают платежи за сделки и просят передать подарок напрямую им, минуя эскроу-аккаунт.</p>
+        <p style={{fontSize:13,fontWeight:700,color:"#16A34A",margin:"0 0 10px"}}>🛡 Правила безопасности:</p>
+        {rules.map(([em,node,bg],i)=>(
+          <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",background:bg,borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+            <span style={{flexShrink:0}}>{em}</span>
+            <span style={{fontSize:13,color:"#334155",lineHeight:1.4}}>{node}</span>
+          </div>
+        ))}
+        <button disabled={!ready} onClick={() => ready && onConfirm()} style={{
+          width:"100%",marginTop:12,padding:"14px 20px",borderRadius:14,border:"none",fontSize:15,fontWeight:700,
+          cursor: ready ? "pointer" : "default",
+          background: ready ? "linear-gradient(135deg,#EF4444,#DC2626)" : "#F1F5F9",
+          color: ready ? "#fff" : "#94A3B8",
+        }}>{ready ? "Прочитал(а), продолжить" : `Прочитайте — ${left}с`}</button>
+      </div>
+    </Sh></Ov>
+  );
+}
+
+/* ══════════════════════════════════
+   MODAL: SHARE DEAL
+   ══════════════════════════════════ */
+function MShareDeal({ deal, buyer, onClose }) {
+  const [lang, setLang] = useState("ru");
+  const [copied, setCopied] = useState(false);
+  const text = buildDealText(deal, buyer, lang);
+  const tg = window.Telegram?.WebApp;
+  const forward = () => {
+    const url = "https://t.me/share/url?url=" + encodeURIComponent(dealLink(deal.code)) +
+                "&text=" + encodeURIComponent(text);
+    tg?.openTelegramLink ? tg.openTelegramLink(url) : window.open(url, "_blank");
+  };
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Поделиться</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      <div style={{padding:"0 20px 24px"}}>
+        <p style={{fontSize:12,color:"#94A3B8",textAlign:"center",margin:"0 0 10px"}}>Язык карточки</p>
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16,flexWrap:"wrap"}}>
+          {SHARE_LANGS.map(l => (
+            <button key={l.code} onClick={() => setLang(l.code)} style={{
+              display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 12px",borderRadius:10,cursor:"pointer",
+              background:lang===l.code?"#EFF6FF":"#fff",
+              border:lang===l.code?"2px solid #2F80ED":"1.5px solid #E2E8F0",
+              color:lang===l.code?"#2F80ED":"#333",
+            }}>
+              <span style={{fontSize:14,fontWeight:700}}>{l.ab}</span>
+              <span style={{fontSize:10,color:"#94A3B8"}}>{l.sub}</span>
+            </button>
+          ))}
+        </div>
+        <pre style={{whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#F8FAFC",border:"1px solid #E2E8F0",
+          borderRadius:14,padding:14,fontSize:13,color:"#333",margin:"0 0 16px",fontFamily:"inherit",lineHeight:1.5,
+          direction:lang==="ar"?"rtl":"ltr"}}>{text}</pre>
+        <Btn onClick={forward} style={{marginBottom:10}}>✈️ Переслать в чат</Btn>
+        <OBtn onClick={copy}>{copied ? "✓ Скопировано" : "⧉ Скопировать текст"}</OBtn>
+      </div>
+    </Sh></Ov>
+  );
+}
+
+/* ══════════════════════════════════
+   MODAL: PAY DEAL (stub, 3 taps)
+   ══════════════════════════════════ */
+function MPayDeal({ deal, onPaid, onClose }) {
+  const [step, setStep] = useState(1);
+  const amt = parseFloat(deal.amount) || 0;
+  const total = (amt * (1 + COMMISSION)).toFixed(2);
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Оплата сделки</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      <div style={{padding:"0 20px 28px",textAlign:"center"}}>
+        {step === 1 && <>
+          <div style={{margin:"6px 0 14px",display:"flex",justifyContent:"center"}}>{icon(deal.currency, 56)}</div>
+          <p style={{fontSize:28,fontWeight:800,color:"#111",margin:"0 0 4px"}}>{total} {deal.currency}</p>
+          <p style={{fontSize:12,color:"#94A3B8",margin:0}}>Сделка #{deal.code} · с комиссией {(COMMISSION*100)}%</p>
+          <p style={{fontSize:13,color:"#64748B",margin:"12px 0 0",lineHeight:1.5}}>Средства удержит эскроу {ESCROW_MANAGER} до получения товара.</p>
+          <Btn style={{marginTop:20}} onClick={() => setStep(2)}>Оплатить {total} {deal.currency}</Btn>
+        </>}
+        {step === 2 && <>
+          <div style={{width:72,height:72,borderRadius:36,background:"#DCFCE7",display:"flex",alignItems:"center",justifyContent:"center",margin:"14px auto 12px"}}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <p style={{fontSize:20,fontWeight:700,color:"#111",margin:"0 0 6px"}}>Оплата принята</p>
+          <p style={{fontSize:13,color:"#64748B",margin:0}}>Сделка перешла в статус «Оплачена».</p>
+          <Btn style={{marginTop:20}} onClick={() => { onPaid?.(deal.id); onClose?.(); }}>Готово</Btn>
+        </>}
+      </div>
+    </Sh></Ov>
+  );
+}
+
+/* ══════════════════════════════════
    MODAL: LANGUAGE
    ══════════════════════════════════ */
 function MLang({ cur, onPick, onClose }) {
@@ -592,7 +892,6 @@ function Ov({ children, onClose }) { return <div style={S.ov} onClick={onClose}>
 function Sh({ children }) { return <div style={S.sh} onClick={e=>e.stopPropagation()}>{children}</div>; }
 function XBtn({ onClick }) { return <button style={S.xBtn} onClick={onClick}>×</button>; }
 
-
 /* ══════════════════════════════════
    STYLES
    ══════════════════════════════════ */
@@ -631,14 +930,13 @@ const S = {
   ov:{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},
   sh:{width:"100%",maxWidth:400,background:"#fff",borderRadius:"20px 20px 0 0",maxHeight:"88vh",overflowY:"auto"},
   xBtn:{width:28,height:28,borderRadius:14,background:"#F1F5F9",border:"none",fontSize:18,color:"#64748B",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",lineHeight:1},
-  backL:{background:"none",border:"none",color:"#2F80ED",fontSize:14,fontWeight:500,padding:"0 20px 10px",cursor:"pointer"},
+  backL:{background:"none",border:"none",color:"#2F80ED",fontSize:14,fontWeight:500,padding:"0 0 10px",cursor:"pointer"},
   sT:{fontSize:15,fontWeight:500,color:"#333",textAlign:"center",margin:"0 0 18px"},
   curCell:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"18px 10px",background:"#F8FAFC",border:"1.5px solid #E2E8F0",borderRadius:14,cursor:"pointer"},
   inpRow:{display:"flex",alignItems:"center",border:"1.5px solid #E2E8F0",borderRadius:12,padding:"11px 14px",gap:8},
   inp:{flex:1,border:"none",outline:"none",fontSize:16,fontWeight:500,color:"#333",background:"transparent"},
   ta:{width:"100%",border:"1.5px solid #E2E8F0",borderRadius:12,padding:"12px 14px",fontSize:14,color:"#333",resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box"},
 };
-
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
