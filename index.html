@@ -57,6 +57,143 @@ window.addEventListener('error', function (ev) {
 });
 
 /* ════════════════════════════════════════════
+   I18N — переводы на 5 языков
+   ════════════════════════════════════════════ */
+let __lang = "ru";
+const LANGS = [
+  { code:"ru", name:"Русский" }, { code:"en", name:"English" },
+  { code:"uk", name:"Українська" }, { code:"zh", name:"中文" }, { code:"ar", name:"العربية" },
+];
+const T = {
+  ru: {
+    nav_deals:"Сделки", nav_wallets:"Кошельки", nav_leaders:"Лидеры", nav_profile:"Профиль",
+    splash_tag:"P2P-сделки с гарантом",
+    d_my:"Мои сделки", d_create:"+ Создать сделку", d_active:"Активные", d_history:"История сделок",
+    d_no_active:"Нет активных сделок", d_no_history:"Нет завершённых сделок",
+    st_received:"Завершена", st_cancelled:"Отменена", st_paid:"Оплачена", st_escrow:"В эскроу",
+    st_wait_pay:"Ожидание оплаты", st_wait_seller:"Ожидание продавца",
+    w_my:"Мои кошельки", w_not_linked:"Не привязан", w_not_set:"Не указана",
+    w_deposit:"↑ Пополнение", w_withdraw:"↓ Вывести", w_topup:"Пополнить", w_amount:"Сумма",
+    w_min:"Минимум", w_comment:"Комментарий к переводу (необязательно)", w_comment_ph:"Ваш комментарий",
+    w_cancel:"Отменить", w_paid:"Я оплатил", w_sent_t:"Заявка отправлена",
+    w_sent_x:"Пополнение {a} {c} на проверке. Средства зачислятся после подтверждения.",
+    w_wd:"Вывести", w_available:"Доступно", w_card:"Номер карты", w_address:"Адрес кошелька",
+    w_wd_done_t:"Заявка на вывод создана", w_wd_done_x:"Вывод {a} {c} обрабатывается. Обычно до 24 часов.",
+    w_done:"Готово", w_save:"Сохранить",
+    e_amount:"Введите сумму", e_min:"Минимальная сумма: {m} {c}", e_funds:"Недостаточно средств",
+    e_card:"Неверный номер карты", e_dest:"Укажите реквизиты",
+    l_title:"Топ участников", l_subtitle:"По объёму завершённых сделок", l_deals:"сделок",
+    pr_title:"Профиль", pr_tx:"Транзакции", pr_langs:"Языки", pr_balances:"Балансы",
+    pr_hide_zero:"Скрыть нулевые", pr_all_zero:"Все балансы нулевые", pr_stats:"Статистика сделок",
+    pr_success:"Успешных", pr_completed:"Завершённых", pr_cancelled:"Отменённых", pr_total:"Всего",
+    pr_turnover:"Торговый оборот", pr_rates:"Курсы валют", pr_updated:"Обновляется каждые 60 сек",
+    lang_title:"Язык",
+  },
+  en: {
+    nav_deals:"Deals", nav_wallets:"Wallets", nav_leaders:"Leaders", nav_profile:"Profile",
+    splash_tag:"Secure P2P deals",
+    d_my:"My deals", d_create:"+ Create deal", d_active:"Active", d_history:"Deal history",
+    d_no_active:"No active deals", d_no_history:"No completed deals",
+    st_received:"Completed", st_cancelled:"Cancelled", st_paid:"Paid", st_escrow:"In escrow",
+    st_wait_pay:"Awaiting payment", st_wait_seller:"Awaiting seller",
+    w_my:"My wallets", w_not_linked:"Not linked", w_not_set:"Not set",
+    w_deposit:"↑ Deposit", w_withdraw:"↓ Withdraw", w_topup:"Top up", w_amount:"Amount",
+    w_min:"Minimum", w_comment:"Payment comment (optional)", w_comment_ph:"Your comment",
+    w_cancel:"Cancel", w_paid:"I've paid", w_sent_t:"Request sent",
+    w_sent_x:"Deposit {a} {c} is being verified. Funds will be credited after confirmation.",
+    w_wd:"Withdraw", w_available:"Available", w_card:"Card number", w_address:"Wallet address",
+    w_wd_done_t:"Withdrawal requested", w_wd_done_x:"Withdrawal {a} {c} is processing. Usually up to 24h.",
+    w_done:"Done", w_save:"Save",
+    e_amount:"Enter amount", e_min:"Minimum amount: {m} {c}", e_funds:"Insufficient funds",
+    e_card:"Invalid card number", e_dest:"Enter the details",
+    l_title:"Top members", l_subtitle:"By completed deals volume", l_deals:"deals",
+    pr_title:"Profile", pr_tx:"Transactions", pr_langs:"Languages", pr_balances:"Balances",
+    pr_hide_zero:"Hide zero", pr_all_zero:"All balances are zero", pr_stats:"Deal statistics",
+    pr_success:"Successful", pr_completed:"Completed", pr_cancelled:"Cancelled", pr_total:"Total",
+    pr_turnover:"Trading volume", pr_rates:"Exchange rates", pr_updated:"Updates every 60 sec",
+    lang_title:"Language",
+  },
+  uk: {
+    nav_deals:"Угоди", nav_wallets:"Гаманці", nav_leaders:"Лідери", nav_profile:"Профіль",
+    splash_tag:"P2P-угоди з гарантом",
+    d_my:"Мої угоди", d_create:"+ Створити угоду", d_active:"Активні", d_history:"Історія угод",
+    d_no_active:"Немає активних угод", d_no_history:"Немає завершених угод",
+    st_received:"Завершено", st_cancelled:"Скасовано", st_paid:"Оплачено", st_escrow:"В ескроу",
+    st_wait_pay:"Очікування оплати", st_wait_seller:"Очікування продавця",
+    w_my:"Мої гаманці", w_not_linked:"Не прив'язано", w_not_set:"Не вказано",
+    w_deposit:"↑ Поповнення", w_withdraw:"↓ Вивести", w_topup:"Поповнити", w_amount:"Сума",
+    w_min:"Мінімум", w_comment:"Коментар до переказу (необов'язково)", w_comment_ph:"Ваш коментар",
+    w_cancel:"Скасувати", w_paid:"Я сплатив", w_sent_t:"Заявку надіслано",
+    w_sent_x:"Поповнення {a} {c} на перевірці. Кошти зарахуються після підтвердження.",
+    w_wd:"Вивести", w_available:"Доступно", w_card:"Номер картки", w_address:"Адреса гаманця",
+    w_wd_done_t:"Заявку на вивід створено", w_wd_done_x:"Вивід {a} {c} обробляється. Зазвичай до 24 годин.",
+    w_done:"Готово", w_save:"Зберегти",
+    e_amount:"Введіть суму", e_min:"Мінімальна сума: {m} {c}", e_funds:"Недостатньо коштів",
+    e_card:"Невірний номер картки", e_dest:"Вкажіть реквізити",
+    l_title:"Топ учасників", l_subtitle:"За обсягом завершених угод", l_deals:"угод",
+    pr_title:"Профіль", pr_tx:"Транзакції", pr_langs:"Мови", pr_balances:"Баланси",
+    pr_hide_zero:"Приховати нульові", pr_all_zero:"Усі баланси нульові", pr_stats:"Статистика угод",
+    pr_success:"Успішних", pr_completed:"Завершених", pr_cancelled:"Скасованих", pr_total:"Усього",
+    pr_turnover:"Торговий оборот", pr_rates:"Курси валют", pr_updated:"Оновлюється кожні 60 с",
+    lang_title:"Мова",
+  },
+  zh: {
+    nav_deals:"交易", nav_wallets:"钱包", nav_leaders:"排行榜", nav_profile:"个人",
+    splash_tag:"带担保的 P2P 交易",
+    d_my:"我的交易", d_create:"+ 创建交易", d_active:"进行中", d_history:"交易历史",
+    d_no_active:"没有进行中的交易", d_no_history:"没有已完成的交易",
+    st_received:"已完成", st_cancelled:"已取消", st_paid:"已支付", st_escrow:"托管中",
+    st_wait_pay:"等待支付", st_wait_seller:"等待卖家",
+    w_my:"我的钱包", w_not_linked:"未绑定", w_not_set:"未设置",
+    w_deposit:"↑ 充值", w_withdraw:"↓ 提现", w_topup:"充值", w_amount:"金额",
+    w_min:"最低", w_comment:"转账备注（可选）", w_comment_ph:"您的备注",
+    w_cancel:"取消", w_paid:"我已支付", w_sent_t:"申请已发送",
+    w_sent_x:"充值 {a} {c} 正在核实，确认后到账。",
+    w_wd:"提现", w_available:"可用", w_card:"卡号", w_address:"钱包地址",
+    w_wd_done_t:"提现申请已创建", w_wd_done_x:"提现 {a} {c} 处理中，通常 24 小时内。",
+    w_done:"完成", w_save:"保存",
+    e_amount:"请输入金额", e_min:"最低金额：{m} {c}", e_funds:"余额不足",
+    e_card:"卡号无效", e_dest:"请输入信息",
+    l_title:"排行榜", l_subtitle:"按已完成交易额", l_deals:"笔交易",
+    pr_title:"个人资料", pr_tx:"交易记录", pr_langs:"语言", pr_balances:"余额",
+    pr_hide_zero:"隐藏零余额", pr_all_zero:"所有余额为零", pr_stats:"交易统计",
+    pr_success:"成功", pr_completed:"已完成", pr_cancelled:"已取消", pr_total:"总计",
+    pr_turnover:"交易额", pr_rates:"汇率", pr_updated:"每 60 秒更新",
+    lang_title:"语言",
+  },
+  ar: {
+    nav_deals:"الصفقات", nav_wallets:"المحافظ", nav_leaders:"المتصدرون", nav_profile:"الملف",
+    splash_tag:"صفقات P2P مضمونة",
+    d_my:"صفقاتي", d_create:"+ إنشاء صفقة", d_active:"نشطة", d_history:"سجل الصفقات",
+    d_no_active:"لا توجد صفقات نشطة", d_no_history:"لا توجد صفقات مكتملة",
+    st_received:"مكتملة", st_cancelled:"ملغاة", st_paid:"مدفوعة", st_escrow:"في الضمان",
+    st_wait_pay:"بانتظار الدفع", st_wait_seller:"بانتظار البائع",
+    w_my:"محافظي", w_not_linked:"غير مرتبط", w_not_set:"غير محدد",
+    w_deposit:"↑ إيداع", w_withdraw:"↓ سحب", w_topup:"إيداع", w_amount:"المبلغ",
+    w_min:"الحد الأدنى", w_comment:"تعليق التحويل (اختياري)", w_comment_ph:"تعليقك",
+    w_cancel:"إلغاء", w_paid:"لقد دفعت", w_sent_t:"تم إرسال الطلب",
+    w_sent_x:"يتم التحقق من إيداع {a} {c}. ستُضاف بعد التأكيد.",
+    w_wd:"سحب", w_available:"متاح", w_card:"رقم البطاقة", w_address:"عنوان المحفظة",
+    w_wd_done_t:"تم إنشاء طلب السحب", w_wd_done_x:"يتم معالجة سحب {a} {c}. عادةً حتى 24 ساعة.",
+    w_done:"تم", w_save:"حفظ",
+    e_amount:"أدخل المبلغ", e_min:"الحد الأدنى: {m} {c}", e_funds:"رصيد غير كافٍ",
+    e_card:"رقم بطاقة غير صالح", e_dest:"أدخل التفاصيل",
+    l_title:"أفضل المشاركين", l_subtitle:"حسب حجم الصفقات المكتملة", l_deals:"صفقة",
+    pr_title:"الملف الشخصي", pr_tx:"المعاملات", pr_langs:"اللغات", pr_balances:"الأرصدة",
+    pr_hide_zero:"إخفاء الصفري", pr_all_zero:"كل الأرصدة صفر", pr_stats:"إحصائيات الصفقات",
+    pr_success:"ناجحة", pr_completed:"مكتملة", pr_cancelled:"ملغاة", pr_total:"الإجمالي",
+    pr_turnover:"حجم التداول", pr_rates:"أسعار الصرف", pr_updated:"يُحدَّث كل 60 ثانية",
+    lang_title:"اللغة",
+  },
+};
+function t(key, vars) {
+  const d = T[__lang] || T.ru;
+  let s = (d && d[key] != null) ? d[key] : (T.ru[key] != null ? T.ru[key] : key);
+  if (vars) for (const k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+
+/* ════════════════════════════════════════════
    CURRENCY ICON COMPONENTS
    ════════════════════════════════════════════ */
 const CI = ({ bg, children, size = 36 }) => (
@@ -191,7 +328,7 @@ function App() {
   const [tab, setTab] = useState("deals");
   const [showCreate, setShowCreate] = useState(false);
   const [showLang, setShowLang] = useState(false);
-  const [lang, setLang] = useState("Русский");
+  const [lang, setLang] = useState("ru");
   const [deals, setDeals] = useState([]);
   const [rates, setRates] = useState({});
   const [profTab, setProfTab] = useState("transactions");
@@ -204,6 +341,7 @@ function App() {
   const [payDeal, setPayDeal] = useState(null);
   const [boot, setBoot] = useState(true);
   const openedDeal = deals.find(d => d.id === openDealId) || null;
+  __lang = lang;   // текущий язык для t() — задаём до рендера детей
 
   useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
   useEffect(() => { const t = setTimeout(() => setBoot(false), 5000); return () => clearTimeout(t); }, []);
@@ -298,12 +436,12 @@ function App() {
 
       {!openedDeal && (
         <nav style={S.nav}>
-          {[{id:"deals",l:"Сделки",I:NDeals},{id:"wallets",l:"Кошельки",I:NWall},{id:"leaders",l:"Лидеры",I:NLead},{id:"profile",l:"Профиль",I:NProf}].map(t => {
-            const on = tab === t.id;
+          {[{id:"deals",key:"nav_deals",I:NDeals},{id:"wallets",key:"nav_wallets",I:NWall},{id:"leaders",key:"nav_leaders",I:NLead},{id:"profile",key:"nav_profile",I:NProf}].map(nt => {
+            const on = tab === nt.id;
             return (
-              <button key={t.id} style={S.navBtn} onClick={() => setTab(t.id)}>
-                <div style={on ? S.navOn : S.navOff}><t.I c={on?"#fff":"#8E8E93"}/></div>
-                <span style={{fontSize:10,color:on?"#2F80ED":"#8E8E93",marginTop:2}}>{t.l}</span>
+              <button key={nt.id} style={S.navBtn} onClick={() => setTab(nt.id)}>
+                <div style={on ? S.navOn : S.navOff}><nt.I c={on?"#fff":"#8E8E93"}/></div>
+                <span style={{fontSize:10,color:on?"#2F80ED":"#8E8E93",marginTop:2}}>{t(nt.key)}</span>
               </button>
             );
           })}
@@ -354,10 +492,10 @@ function Splash({ done, onDone }) {
                 <path d="M12 8.5S11 4 8.6 4 6.4 7.6 9 8.5m3 0S13 4 15.4 4 17.6 7.6 15 8.5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/>
               </svg>
             </div>
-            <div style={{marginTop:22, fontSize:32, fontWeight:800, color:"#fff", letterSpacing:.5}}>FunPay</div>
-            <div style={{marginTop:6, fontSize:13, color:"#93C5FD"}}>P2P-сделки с гарантом</div>
+            <div style={{marginTop:22, fontSize:32, fontWeight:800, color:"#111", letterSpacing:.5}}>FunPay</div>
+            <div style={{marginTop:6, fontSize:13, color:"#64748B"}}>{t("splash_tag")}</div>
             <div style={{margin:"28px auto 0", width:36, height:36, borderRadius:"50%",
-              border:"3px solid rgba(255,255,255,.18)", borderTopColor:"#fff", animation:"spin 1s linear infinite"}}/>
+              border:"3px solid rgba(47,128,237,.18)", borderTopColor:"#2F80ED", animation:"spin 1s linear infinite"}}/>
           </div>}
     </div>
   );
@@ -402,15 +540,15 @@ function PgDeals({ deals, onOpen, onOpenDeal }) {
 
   return (
     <div style={S.page}>
-      <h1 style={S.h1}>Мои сделки</h1>
-      <Btn onClick={onOpen}>+ Создать сделку</Btn>
+      <h1 style={S.h1}>{t("d_my")}</h1>
+      <Btn onClick={onOpen}>{t("d_create")}</Btn>
       <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
-        <TBtn on={sub==="active"} onClick={() => setSub("active")}>Активные</TBtn>
-        <TBtn on={sub==="history"} onClick={() => setSub("history")}>История сделок</TBtn>
+        <TBtn on={sub==="active"} onClick={() => setSub("active")}>{t("d_active")}</TBtn>
+        <TBtn on={sub==="history"} onClick={() => setSub("history")}>{t("d_history")}</TBtn>
       </div>
       <div style={{marginTop:16}}>
         {list.length === 0
-          ? <p style={S.empty}>{sub==="active" ? "Нет активных сделок" : "Нет завершённых сделок"}</p>
+          ? <p style={S.empty}>{sub==="active" ? t("d_no_active") : t("d_no_history")}</p>
           : list.map(d => <DealCard key={d.id} d={d} onClick={() => onOpenDeal(d.id)} />)
         }
       </div>
@@ -419,9 +557,9 @@ function PgDeals({ deals, onOpen, onOpenDeal }) {
 }
 
 function DealCard({ d, onClick }) {
-  const map = { received:["Завершена","#16A34A"], cancelled:["Отменена","#EF4444"],
-                paid:["Оплачена","#0EA5E9"], escrow:["В эскроу","#8B5CF6"],
-                joined:["Ожидание оплаты","#F59E0B"], created:["Ожидание продавца","#2F80ED"] };
+  const map = { received:[t("st_received"),"#16A34A"], cancelled:[t("st_cancelled"),"#EF4444"],
+                paid:[t("st_paid"),"#0EA5E9"], escrow:[t("st_escrow"),"#8B5CF6"],
+                joined:[t("st_wait_pay"),"#F59E0B"], created:[t("st_wait_seller"),"#2F80ED"] };
   const [lbl, col] = map[d.status] || map.created;
   return (
     <div style={{...S.card, marginBottom:10, cursor:"pointer"}} onClick={onClick}>
@@ -597,7 +735,7 @@ function PgWall({ bals }) {
 
   return (
     <div style={S.page}>
-      <h1 style={S.h1}>Мои кошельки</h1>
+      <h1 style={S.h1}>{t("w_my")}</h1>
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,marginBottom:16}}>
         {WALLET_TABS.map(c => (
           <button key={c} style={wt===c?S.pillOn:S.pillOff} onClick={() => setWt(c)}>
@@ -607,7 +745,7 @@ function PgWall({ bals }) {
       </div>
 
       <div style={S.card}>
-        <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Мои кошельки</p>
+        <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 14px"}}>{t("w_my")}</p>
         {cfg.reqs.map(r => {
           const key = wt + ":" + r.id;
           const val = reqVals[key];
@@ -616,7 +754,7 @@ function PgWall({ bals }) {
               <div style={{minWidth:0}}>
                 <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 4px"}}>{r.label}</p>
                 <p style={{fontSize:13,margin:0,color: val?"#2F80ED":"#94A3B8",fontStyle: val?"normal":"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {val || (r.card ? "Не указана" : "Не привязан")}
+                  {val || (r.card ? t("w_not_set") : t("w_not_linked"))}
                 </p>
               </div>
               <button onClick={() => setEdit({ cur:wt, id:r.id, label:r.label, card:r.card })}
@@ -629,8 +767,8 @@ function PgWall({ bals }) {
       </div>
 
       <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
-        <Btn onClick={() => setModal("deposit")}>↑ Пополнение</Btn>
-        <OBtn onClick={() => setModal("withdraw")}>↓ Вывести</OBtn>
+        <Btn onClick={() => setModal("deposit")}>{t("w_deposit")}</Btn>
+        <OBtn onClick={() => setModal("withdraw")}>{t("w_withdraw")}</OBtn>
       </div>
 
       {edit && <MReq info={edit} value={reqVals[edit.cur+":"+edit.id] || ""}
@@ -650,13 +788,34 @@ function WSuccess({ title, text, onClose }) {
       </div>
       <p style={{fontSize:20,fontWeight:700,color:"#111",margin:"0 0 6px"}}>{title}</p>
       <p style={{fontSize:13,color:"#64748B",margin:0,lineHeight:1.5}}>{text}</p>
-      <Btn style={{marginTop:20}} onClick={onClose}>Готово</Btn>
+      <Btn style={{marginTop:20}} onClick={onClose}>{t("w_done")}</Btn>
     </div>
   );
 }
 
+const Err = ({ msg }) => msg
+  ? <p style={{fontSize:12,fontWeight:600,color:"#EF4444",margin:"8px 0 0"}}>⚠️ {msg}</p> : null;
+
+// проверка суммы: возвращает текст ошибки или "" если всё ок
+function checkAmount(raw, min, cur, max) {
+  const s = String(raw).trim().replace(",", ".");
+  if (!s) return t("e_amount");
+  const n = parseFloat(s);
+  if (isNaN(n) || n <= 0) return t("e_amount");
+  if (n < min) return t("e_min", { m: min, c: cur });
+  if (max != null && n > max) return t("e_funds");
+  return "";
+}
+
 function MReq({ info, value, onSave, onClose }) {
   const [v, setV] = useState(value);
+  const [err, setErr] = useState("");
+  const submit = () => {
+    const s = v.trim();
+    if (!s) { setErr(t("e_dest")); return; }
+    if (info.card && s.replace(/\D/g, "").length < 16) { setErr(t("e_card")); return; }
+    onSave(s);
+  };
   return (
     <Ov onClose={onClose}><Sh>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
@@ -664,9 +823,10 @@ function MReq({ info, value, onSave, onClose }) {
         <XBtn onClick={onClose}/>
       </div>
       <div style={{padding:"0 20px 24px"}}>
-        <input value={v} onChange={e=>setV(e.target.value)} autoFocus
-          placeholder={info.card ? "0000 0000 0000 0000" : "Адрес кошелька"} style={wInp}/>
-        <Btn style={{marginTop:14,opacity: v.trim()?1:.5}} onClick={() => v.trim() && onSave(v.trim())}>Сохранить</Btn>
+        <input value={v} onChange={e=>{ setV(e.target.value); setErr(""); }} autoFocus
+          placeholder={info.card ? "0000 0000 0000 0000" : t("w_address")} style={wInp}/>
+        <Err msg={err}/>
+        <Btn style={{marginTop:14}} onClick={submit}>{t("w_save")}</Btn>
       </div>
     </Sh></Ov>
   );
@@ -676,18 +836,18 @@ function MDeposit({ cur, cfg, onClose }) {
   const [amt, setAmt] = useState(String(cfg.min));
   const [comment, setComment] = useState("");
   const [ok, setOk] = useState(false);
+  const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
-  const n = parseFloat(amt);
-  const valid = !isNaN(n) && n >= cfg.min;
   const copy = async () => { try { await navigator.clipboard.writeText(cfg.dep.value); } catch(e){} setCopied(true); setTimeout(()=>setCopied(false),1200); };
+  const submit = () => { const e = checkAmount(amt, cfg.min, cur); if (e) { setErr(e); return; } setOk(true); };
   return (
     <Ov onClose={onClose}><Sh>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
-        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Пополнить {cur}</h3>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>{t("w_topup")} {cur}</h3>
         <XBtn onClick={onClose}/>
       </div>
       {ok
-        ? <WSuccess title="Заявка отправлена" text={"Пополнение " + amt + " " + cur + " на проверке. Средства зачислятся после подтверждения."} onClose={onClose}/>
+        ? <WSuccess title={t("w_sent_t")} text={t("w_sent_x", { a: amt, c: cur })} onClose={onClose}/>
         : <div style={{padding:"0 20px 24px"}}>
             <div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
               <p style={{fontSize:12,color:"#94A3B8",margin:"0 0 8px"}}>{cfg.dep.label}:</p>
@@ -696,14 +856,15 @@ function MDeposit({ cur, cfg, onClose }) {
                 <button onClick={copy} style={{width:38,height:38,borderRadius:10,border:"none",background:"#EFF6FF",cursor:"pointer",flexShrink:0,color:"#2F80ED",fontSize:16}}>{copied?"✓":"⧉"}</button>
               </div>
             </div>
-            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>Сумма {cur}</p>
-            <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} style={wInp}/>
-            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>Минимум: {cfg.min} {cur}</p>
-            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>Комментарий к переводу (необязательно)</p>
-            <input value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ваш комментарий" style={wInp}/>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>{t("w_amount")} {cur}</p>
+            <input type="number" value={amt} onChange={e=>{ setAmt(e.target.value); setErr(""); }} style={wInp}/>
+            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>{t("w_min")}: {cfg.min} {cur}</p>
+            <Err msg={err}/>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>{t("w_comment")}</p>
+            <input value={comment} onChange={e=>setComment(e.target.value)} placeholder={t("w_comment_ph")} style={wInp}/>
             <div style={{display:"flex",gap:10,marginTop:18}}>
-              <OBtn onClick={onClose}>Отменить</OBtn>
-              <Btn style={{opacity:valid?1:.5}} onClick={() => valid && setOk(true)}>Я оплатил</Btn>
+              <OBtn onClick={onClose}>{t("w_cancel")}</OBtn>
+              <Btn onClick={submit}>{t("w_paid")}</Btn>
             </div>
           </div>}
     </Sh></Ov>
@@ -714,33 +875,41 @@ function MWithdraw({ cur, cfg, bal, onClose }) {
   const [dest, setDest] = useState("");
   const [amt, setAmt] = useState(String(cfg.min));
   const [ok, setOk] = useState(false);
+  const [err, setErr] = useState("");
   const isCard = cfg.reqs[0] && cfg.reqs[0].card;
-  const n = parseFloat(amt);
-  const valid = dest.trim() && !isNaN(n) && n >= cfg.min;
+  const submit = () => {
+    const d = dest.trim();
+    if (!d) { setErr(t("e_dest")); return; }
+    if (isCard && d.replace(/\D/g, "").length < 16) { setErr(t("e_card")); return; }
+    const e = checkAmount(amt, cfg.min, cur, bal);
+    if (e) { setErr(e); return; }
+    setOk(true);
+  };
   return (
     <Ov onClose={onClose}><Sh>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
-        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Вывести {cur}</h3>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>{t("w_wd")} {cur}</h3>
         <XBtn onClick={onClose}/>
       </div>
       {ok
-        ? <WSuccess title="Заявка на вывод создана" text={"Вывод " + amt + " " + cur + " обрабатывается. Обычно занимает до 24 часов."} onClose={onClose}/>
+        ? <WSuccess title={t("w_wd_done_t")} text={t("w_wd_done_x", { a: amt, c: cur })} onClose={onClose}/>
         : <div style={{padding:"0 20px 24px"}}>
             <div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
-                <p style={{fontSize:11,color:"#94A3B8",margin:"0 0 2px",textTransform:"uppercase"}}>Доступно</p>
+                <p style={{fontSize:11,color:"#94A3B8",margin:"0 0 2px",textTransform:"uppercase"}}>{t("w_available")}</p>
                 <p style={{fontSize:22,fontWeight:800,color:"#111",margin:0}}>{bal}</p>
               </div>
               <span style={{fontSize:13,fontWeight:700,color:"#64748B",background:"#EFF6FF",padding:"6px 12px",borderRadius:10}}>{cur}</span>
             </div>
-            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>{isCard ? "Номер карты" : "Адрес кошелька"}</p>
-            <input value={dest} onChange={e=>setDest(e.target.value)} placeholder={isCard ? "0000 0000 0000 0000" : "Адрес"} style={wInp}/>
-            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>Сумма {cur}</p>
-            <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} style={wInp}/>
-            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>Минимум: {cfg.min} {cur}</p>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>{isCard ? t("w_card") : t("w_address")}</p>
+            <input value={dest} onChange={e=>{ setDest(e.target.value); setErr(""); }} placeholder={isCard ? "0000 0000 0000 0000" : t("w_address")} style={wInp}/>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>{t("w_amount")} {cur}</p>
+            <input type="number" value={amt} onChange={e=>{ setAmt(e.target.value); setErr(""); }} style={wInp}/>
+            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>{t("w_min")}: {cfg.min} {cur}</p>
+            <Err msg={err}/>
             <div style={{display:"flex",gap:10,marginTop:18}}>
-              <OBtn onClick={onClose}>Отменить</OBtn>
-              <Btn style={{opacity:valid?1:.5}} onClick={() => valid && setOk(true)}>Вывести</Btn>
+              <OBtn onClick={onClose}>{t("w_cancel")}</OBtn>
+              <Btn onClick={submit}>{t("w_wd")}</Btn>
             </div>
           </div>}
     </Sh></Ov>
@@ -773,8 +942,8 @@ function PgLead() {
   return (
     <div style={S.page}>
       <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:18,flexWrap:"wrap"}}>
-        <h1 style={{...S.h1,margin:0}}>Топ участников</h1>
-        <span style={{fontSize:13,color:"#94A3B8"}}>По объёму завершённых сделок</span>
+        <h1 style={{...S.h1,margin:0}}>{t("l_title")}</h1>
+        <span style={{fontSize:13,color:"#94A3B8"}}>{t("l_subtitle")}</span>
       </div>
 
       <div style={{background:"linear-gradient(160deg,#0F172A 0%,#1E293B 60%,#0F172A 100%)",borderRadius:20,padding:"26px 14px 16px",position:"relative",overflow:"hidden"}}>
@@ -801,7 +970,7 @@ function PgLead() {
             <div style={{width:38,height:38,borderRadius:19,background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700}}>{initialOf(u.name)}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:14,fontWeight:600,color:"#333",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</div>
-              <div style={{fontSize:12,color:"#94A3B8"}}>{u.deals} сделок</div>
+              <div style={{fontSize:12,color:"#94A3B8"}}>{u.deals} {t("l_deals")}</div>
             </div>
             <div style={{fontSize:14,fontWeight:700,color:"#2F80ED"}}>${u.amount.toLocaleString("en-US")}</div>
           </div>
@@ -833,7 +1002,7 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
   return (
     <div style={S.page}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <h1 style={S.h1}>Профиль</h1>
+        <h1 style={S.h1}>{t("pr_title")}</h1>
         <div style={{display:"flex",background: dark ? "#1B2740" : "#E2E8F0",borderRadius:20,padding:3,marginTop:4}}>
           <button onClick={() => setDark(false)} style={{width:38,height:30,borderRadius:16,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",background: !dark ? "#fff" : "transparent",boxShadow: !dark ? "0 1px 2px rgba(0,0,0,.15)" : "none",transition:"background .2s"}}>
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={!dark ? "#F59E0B" : "#64748B"} strokeWidth="1.5"><circle cx="8" cy="8" r="3.3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/></svg>
@@ -858,24 +1027,24 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
       <div style={{display:"flex",gap:10,marginBottom:20}}>
         <button style={pt==="transactions"?S.ptOn:S.ptOff} onClick={() => setPt("transactions")}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4.5v3.5l2.5 1.5"/></svg>
-          <span style={{marginLeft:6}}>Транзакции</span>
+          <span style={{marginLeft:6}}>{t("pr_tx")}</span>
         </button>
         <button style={pt==="languages"?S.ptOn:S.ptOff} onClick={() => { setPt("languages"); onLang(); }}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="5.5"/><ellipse cx="8" cy="8" rx="3" ry="5.5"/><path d="M2.5 8h11"/></svg>
-          <span style={{marginLeft:6}}>Языки</span>
+          <span style={{marginLeft:6}}>{t("pr_langs")}</span>
         </button>
       </div>
 
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <p style={{fontSize:15,fontWeight:600,color:"#333",margin:0}}>Балансы</p>
+          <p style={{fontSize:15,fontWeight:600,color:"#333",margin:0}}>{t("pr_balances")}</p>
           <div style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={() => setHz(!hz)}>
             <Tog on={hz}/>
-            <span style={{fontSize:12,color:"#94A3B8"}}>Скрыть нулевые</span>
+            <span style={{fontSize:12,color:"#94A3B8"}}>{t("pr_hide_zero")}</span>
           </div>
         </div>
         {shown.length === 0
-          ? <p style={{textAlign:"center",color:"#CBD5E1",fontSize:13,padding:"20px 0"}}>Все балансы нулевые</p>
+          ? <p style={{textAlign:"center",color:"#CBD5E1",fontSize:13,padding:"20px 0"}}>{t("pr_all_zero")}</p>
           : shown.map(c => (
           <div key={c} style={S.bRow}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>{icon(c,36)}<span style={{fontSize:15,fontWeight:600,color:"#333"}}>{c}</span></div>
@@ -885,9 +1054,9 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
       </div>
 
       <div style={{...S.card,marginTop:14}}>
-        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Статистика сделок</p>
+        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>{t("pr_stats")}</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-          {[{l:"Успешных",v:stats.success},{l:"Завершённых",v:stats.completed},{l:"Отменённых",v:stats.cancelled},{l:"Всего",v:stats.total}].map(s => (
+          {[{l:t("pr_success"),v:stats.success},{l:t("pr_completed"),v:stats.completed},{l:t("pr_cancelled"),v:stats.cancelled},{l:t("pr_total"),v:stats.total}].map(s => (
             <div key={s.l} style={S.statBox}>
               <p style={{fontSize:11,color:"#94A3B8",margin:"0 0 4px"}}>{s.l}</p>
               <p style={{fontSize:22,fontWeight:700,color:"#333",margin:0}}>{s.v}</p>
@@ -895,20 +1064,20 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
           ))}
         </div>
         <div style={S.turnover}>
-          <p style={{fontSize:13,color:"rgba(255,255,255,.8)",margin:"0 0 2px"}}>Торговый оборот</p>
+          <p style={{fontSize:13,color:"rgba(255,255,255,.8)",margin:"0 0 2px"}}>{t("pr_turnover")}</p>
           <p style={{fontSize:22,fontWeight:700,color:"#fff",margin:0}}>{stats.volume.toFixed(2)} $</p>
         </div>
       </div>
 
       <div style={{...S.card,marginTop:14}}>
-        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Курсы валют</p>
+        <p style={{fontSize:15,fontWeight:600,color:"#333",margin:"0 0 14px"}}>{t("pr_rates")}</p>
         {rateRows.map(r => (
           <div key={r.pair} style={S.bRow}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>{icon(r.ic,36)}<span style={{fontSize:14,fontWeight:600,color:"#333"}}>{r.pair}</span></div>
             <span style={{fontSize:14,fontWeight:600,color:"#2F80ED"}}>{fmt(r.pair)}</span>
           </div>
         ))}
-        <p style={{fontSize:10,color:"#CBD5E1",textAlign:"center",margin:"10px 0 0"}}>Обновляется каждые 60 сек</p>
+        <p style={{fontSize:10,color:"#CBD5E1",textAlign:"center",margin:"10px 0 0"}}>{t("pr_updated")}</p>
       </div>
     </div>
   );
@@ -1132,18 +1301,17 @@ function MPayDeal({ deal, onPaid, onClose }) {
    MODAL: LANGUAGE
    ══════════════════════════════════ */
 function MLang({ cur, onPick, onClose }) {
-  const ls = ["Русский","English","Українська","中文","العربية"];
   return (
     <Ov onClose={onClose}><Sh>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 14px"}}>
-        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Язык</h3>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>{t("lang_title")}</h3>
         <XBtn onClick={onClose}/>
       </div>
       <div style={{padding:"0 20px 24px",display:"flex",flexDirection:"column",gap:10}}>
-        {ls.map(l => {
-          const on = l === cur;
+        {LANGS.map(l => {
+          const on = l.code === cur;
           return (
-            <button key={l} onClick={() => onPick(l)} style={{
+            <button key={l.code} onClick={() => onPick(l.code)} style={{
               width:"100%",padding:"15px 18px",borderRadius:14,fontSize:16,fontWeight:500,
               cursor:"pointer",textAlign:"center",
               background:on?"#EFF6FF":"#fff",
@@ -1151,7 +1319,7 @@ function MLang({ cur, onPick, onClose }) {
               color:on?"#2F80ED":"#333",
               display:"flex",alignItems:"center",justifyContent:"center",gap:8,
             }}>
-              {l}
+              {l.name}
               {on && <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9l3.5 3.5L14 6" stroke="#2F80ED" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </button>
           );
