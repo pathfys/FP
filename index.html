@@ -142,6 +142,28 @@ function buildDealText(deal, buyer, lang) {
 }
 
 /* ════════════════════════════════════════════
+   ANIMATED (INTERACTIVE) EMOJI  — Noto Animated Emoji + fallback
+   ════════════════════════════════════════════ */
+const NOTO = "https://fonts.gstatic.com/s/e/notoemoji/latest/";
+const EMO = {
+  warning: { code:"26a0_fe0f", char:"⚠️" },
+  check:   { code:"2705",      char:"✅" },
+  cross:   { code:"274c",      char:"❌" },
+  bang:    { code:"2757",      char:"❗" },
+  lock:    { code:"1f512",     char:"🔒" },
+  party:   { code:"1f389",     char:"🎉" },
+};
+function Emo({ name, size = 22, style }) {
+  const [failed, setFailed] = useState(false);
+  const e = EMO[name] || { code:null, char:"•" };
+  if (failed || !e.code)
+    return <span style={{fontSize:size,lineHeight:1,...style}}>{e.char}</span>;
+  return <img src={NOTO + e.code + "/512.gif"} width={size} height={size} alt={e.char}
+    style={{display:"inline-block",verticalAlign:"middle",...style}}
+    onError={() => setFailed(true)} />;
+}
+
+/* ════════════════════════════════════════════
    NAV SVG ICONS
    ════════════════════════════════════════════ */
 const NDeals = ({c}) => <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="12" y="2" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="2" y="12" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/><rect x="12" y="12" width="8" height="8" rx="2" stroke={c} strokeWidth="1.8"/></svg>;
@@ -724,28 +746,29 @@ function MSafety({ onClose, onConfirm }) {
   }, [left]);
   const ready = left <= 0;
   const rules = [
-    ["✅", <span>Передавайте подарок <b>ТОЛЬКО</b> на аккаунт <span style={{color:"#2F80ED"}}>{ESCROW_MANAGER}</span></span>, "#DCFCE7"],
-    ["⛔", <span><b>НИКОГДА</b> не отправляйте напрямую покупателю</span>, "#FEE2E2"],
-    ["⚠️", <span>Даже если покупатель уговаривает — <b>НЕ ДЕЛАЙТЕ ЭТОГО!</b></span>, "#FEF3C7"],
+    ["check", <span>Передавайте подарок <b>ТОЛЬКО</b> на аккаунт <span style={{color:"#2F80ED"}}>{ESCROW_MANAGER}</span></span>, "#DCFCE7"],
+    ["cross", <span><b>НИКОГДА</b> не отправляйте напрямую покупателю</span>, "#FEE2E2"],
+    ["warning", <span>Даже если покупатель уговаривает — <b>НЕ ДЕЛАЙТЕ ЭТОГО!</b></span>, "#FEF3C7"],
   ];
   return (
     <Ov onClose={ready ? onClose : undefined}><Sh>
       <div style={{padding:"22px 20px 24px"}}>
         <div style={{textAlign:"center",marginBottom:14}}>
           <div style={{width:56,height:56,borderRadius:28,background:"#FEE2E2",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
-            <span style={{fontSize:26}}>⚠️</span>
+            <Emo name="warning" size={30}/>
           </div>
           <h3 style={{fontSize:18,fontWeight:800,margin:"12px 0 0",color:"#111"}}>Безопасность сделки</h3>
         </div>
-        <p style={{fontSize:12.5,fontWeight:800,color:"#EF4444",margin:"0 0 10px"}}>❗ ВНИМАНИЕ! ВАЖНАЯ ИНФОРМАЦИЯ О БЕЗОПАСНОСТИ</p>
-        <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-          <p style={{fontSize:13,fontWeight:700,color:"#B91C1C",margin:0}}>⚠️ Участились случаи мошенничества!</p>
+        <p style={{fontSize:12.5,fontWeight:800,color:"#EF4444",margin:"0 0 10px"}}><Emo name="bang" size={14}/> ВНИМАНИЕ! ВАЖНАЯ ИНФОРМАЦИЯ О БЕЗОПАСНОСТИ</p>
+        <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+          <Emo name="warning" size={16}/>
+          <p style={{fontSize:13,fontWeight:700,color:"#B91C1C",margin:0}}>Участились случаи мошенничества!</p>
         </div>
         <p style={{fontSize:13,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>Мошенники возвращают платежи за сделки и просят передать подарок напрямую им, минуя эскроу-аккаунт.</p>
-        <p style={{fontSize:13,fontWeight:700,color:"#16A34A",margin:"0 0 10px"}}>🛡 Правила безопасности:</p>
+        <p style={{fontSize:13,fontWeight:700,color:"#16A34A",margin:"0 0 10px"}}><Emo name="lock" size={15}/> Правила безопасности:</p>
         {rules.map(([em,node,bg],i)=>(
           <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",background:bg,borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-            <span style={{flexShrink:0}}>{em}</span>
+            <Emo name={em} size={20} style={{flexShrink:0}}/>
             <span style={{fontSize:13,color:"#334155",lineHeight:1.4}}>{node}</span>
           </div>
         ))}
