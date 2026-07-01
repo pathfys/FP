@@ -587,11 +587,14 @@ function PgProf({ user, stats, bals, rateRows, rates, pt, setPt, onLang, dark, s
     <div style={S.page}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <h1 style={S.h1}>Профиль</h1>
-        <div style={{display:"flex",gap:6,marginTop:4}}>
-          <button style={{...S.circS, background: !dark ? "#EFF6FF" : "#fff", borderColor: !dark ? "#2F80ED" : "#E2E8F0"}} onClick={() => setDark(false)}><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#2F80ED" strokeWidth="1.4"><circle cx="8" cy="8" r="3.5"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/></svg></button>
-          <button style={{...S.circS, background: dark ? "#1E293B" : "#fff", borderColor: dark ? "#2F80ED" : "#E2E8F0"}} onClick={() => setDark(true)}><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={dark ? "#FBBF24" : "#94A3B8"} strokeWidth="1.4"><path d="M13 9.5a5.5 5.5 0 01-6.5-6.5 5.5 5.5 0 106.5 6.5z"/></svg></button>
+               <div style={{display:"flex",background: dark ? "#1B2740" : "#E2E8F0",borderRadius:20,padding:3,marginTop:4}}>
+          <button onClick={() => setDark(false)} style={{width:38,height:30,borderRadius:16,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",background: !dark ? "#fff" : "transparent",boxShadow: !dark ? "0 1px 2px rgba(0,0,0,.15)" : "none",transition:"background .2s"}}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={!dark ? "#F59E0B" : "#64748B"} strokeWidth="1.5"><circle cx="8" cy="8" r="3.3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M3.8 12.2l1.4-1.4M10.8 5.2l1.4-1.4"/></svg>
+          </button>
+          <button onClick={() => setDark(true)} style={{width:38,height:30,borderRadius:16,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",background: dark ? "#2F80ED" : "transparent",transition:"background .2s"}}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={dark ? "#fff" : "#94A3B8"} strokeWidth="1.5"><path d="M13 9.5a5.5 5.5 0 01-6.5-6.5 5.5 5.5 0 106.5 6.5z"/></svg>
+          </button>
         </div>
-      </div>
 
       <div style={{textAlign:"center",margin:"16px 0 20px"}}>
         <div style={{width:84,height:84,borderRadius:42,border:"2.5px solid #2F80ED",margin:"0 auto",overflow:"hidden",background:"#EFF6FF",display:"flex",alignItems:"center",justifyContent:"center"}}>
