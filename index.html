@@ -289,7 +289,7 @@ function App() {
                       onClose={() => setOpenDealId(null)} />
           : <>
               {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onOpenDeal={setOpenDealId} />}
-              {tab === "wallets"  && <PgWall />}
+              {tab === "wallets"  && <PgWall bals={bals} />}
               {tab === "leaders"  && <PgLead />}
               {tab === "profile"  && <PgProf user={tgUser} stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
             </>}
@@ -572,31 +572,178 @@ function DealActions({ deal, onUpd, onShare, onPay }) {
 /* ══════════════════════════════════
    PAGE: WALLETS
    ══════════════════════════════════ */
-function PgWall() {
+/* ── конфигурация валют: минимумы, реквизиты пополнения, сети ── */
+const WALLET_TABS = ["TON","USDT","STARS","RUB","USD","EUR","UAH","BTC","ETH"];
+const WALLET_CFG = {
+  TON:   { min:1,      dep:{ kind:"address", label:"Адрес TON для пополнения",  value:"UQD3fjS9k2mFunPayEscrowAddr" }, reqs:[{id:"ton",label:"TON-кошелёк"}] },
+  USDT:  { min:5,      dep:{ kind:"address", label:"Адрес USDT · TRC20",        value:"TXkFunPay9Qm2EscrowUSDT77" },  reqs:[{id:"trc20",label:"TRC20"},{id:"bep20",label:"BEP20"},{id:"ton",label:"USDT (TON)"}] },
+  STARS: { min:50,     dep:{ kind:"link",    label:"Оплата Telegram Stars",     value:"@FunPayGiftsBot" },            reqs:[{id:"stars",label:"Telegram Stars"}] },
+  RUB:   { min:500,    dep:{ kind:"card",    label:"Номер карты для пополнения", value:"5536 9176 6376 8692" },        reqs:[{id:"card",label:"Банковская карта для RUB",card:true}] },
+  USD:   { min:10,     dep:{ kind:"card",    label:"Реквизиты для пополнения",   value:"4141 2200 1122 3344" },        reqs:[{id:"card",label:"Карта для USD",card:true}] },
+  EUR:   { min:10,     dep:{ kind:"card",    label:"Реквизиты для пополнения",   value:"5375 4141 5566 7788" },        reqs:[{id:"card",label:"Карта для EUR",card:true}] },
+  UAH:   { min:300,    dep:{ kind:"card",    label:"Номер карты для пополнения", value:"5375 4111 2233 4455" },        reqs:[{id:"card",label:"Банковская карта для UAH",card:true}] },
+  BTC:   { min:0.0005, dep:{ kind:"address", label:"BTC-адрес для пополнения",   value:"bc1qFunPayEscrowBtcAddr" },    reqs:[{id:"btc",label:"BTC-кошелёк"}] },
+  ETH:   { min:0.005,  dep:{ kind:"address", label:"ETH-адрес для пополнения",   value:"0xFunPayEscrowEthAddr00" },    reqs:[{id:"eth",label:"ETH-кошелёк"}] },
+};
+const wInp = { width:"100%", border:"1.5px solid #E2E8F0", borderRadius:12, padding:"12px 14px", fontSize:15, fontWeight:500, color:"#333", outline:"none", background:"#fff", boxSizing:"border-box" };
+
+function PgWall({ bals }) {
   const [wt, setWt] = useState("TON");
+  const [reqVals, setReqVals] = useState({});   // "CUR:id" -> значение реквизита
+  const [edit, setEdit] = useState(null);
+  const [modal, setModal] = useState(null);     // "deposit" | "withdraw"
+  const cfg = WALLET_CFG[wt];
+  const bal = (bals && bals[wt]) || 0;
+
   return (
     <div style={S.page}>
       <h1 style={S.h1}>Мои кошельки</h1>
       <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4,marginBottom:16}}>
-        {WALL_TABS.map(c => (
+        {WALLET_TABS.map(c => (
           <button key={c} style={wt===c?S.pillOn:S.pillOff} onClick={() => setWt(c)}>
             {icon(c,18)}<span style={{marginLeft:6,fontSize:13,fontWeight:600}}>{c}</span>
           </button>
         ))}
       </div>
+
       <div style={S.card}>
         <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 14px"}}>Мои кошельки</p>
-        <p style={{fontSize:13,color:"#94A3B8",margin:"0 0 12px"}}>{wt} Кошелек</p>
-        <Btn style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="3" width="16" height="12" rx="2.5" stroke="#fff" strokeWidth="1.5"/><path d="M5 8h8M5 11h5" stroke="#fff" strokeWidth="1.3"/></svg>
-          Подключить {wt} кошелёк
-        </Btn>
+        {cfg.reqs.map(r => {
+          const key = wt + ":" + r.id;
+          const val = reqVals[key];
+          return (
+            <div key={r.id} style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+              <div style={{minWidth:0}}>
+                <p style={{fontSize:14,fontWeight:600,color:"#333",margin:"0 0 4px"}}>{r.label}</p>
+                <p style={{fontSize:13,margin:0,color: val?"#2F80ED":"#94A3B8",fontStyle: val?"normal":"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {val || (r.card ? "Не указана" : "Не привязан")}
+                </p>
+              </div>
+              <button onClick={() => setEdit({ cur:wt, id:r.id, label:r.label, card:r.card })}
+                style={{width:38,height:38,borderRadius:10,border:"none",background:"#EFF6FF",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2F80ED" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+              </button>
+            </div>
+          );
+        })}
       </div>
+
       <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:10}}>
-        <Btn>↑ Пополнение</Btn>
-        <OBtn>↓ Вывести</OBtn>
+        <Btn onClick={() => setModal("deposit")}>↑ Пополнение</Btn>
+        <OBtn onClick={() => setModal("withdraw")}>↓ Вывести</OBtn>
       </div>
+
+      {edit && <MReq info={edit} value={reqVals[edit.cur+":"+edit.id] || ""}
+        onSave={(v) => { setReqVals(p => ({ ...p, [edit.cur+":"+edit.id]: v })); setEdit(null); }}
+        onClose={() => setEdit(null)} />}
+      {modal === "deposit"  && <MDeposit cur={wt} cfg={cfg} onClose={() => setModal(null)} />}
+      {modal === "withdraw" && <MWithdraw cur={wt} cfg={cfg} bal={bal} onClose={() => setModal(null)} />}
     </div>
+  );
+}
+
+function WSuccess({ title, text, onClose }) {
+  return (
+    <div style={{padding:"6px 20px 28px",textAlign:"center"}}>
+      <div style={{width:72,height:72,borderRadius:36,background:"#DCFCE7",display:"flex",alignItems:"center",justifyContent:"center",margin:"14px auto 12px"}}>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </div>
+      <p style={{fontSize:20,fontWeight:700,color:"#111",margin:"0 0 6px"}}>{title}</p>
+      <p style={{fontSize:13,color:"#64748B",margin:0,lineHeight:1.5}}>{text}</p>
+      <Btn style={{marginTop:20}} onClick={onClose}>Готово</Btn>
+    </div>
+  );
+}
+
+function MReq({ info, value, onSave, onClose }) {
+  const [v, setV] = useState(value);
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>{info.label}</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      <div style={{padding:"0 20px 24px"}}>
+        <input value={v} onChange={e=>setV(e.target.value)} autoFocus
+          placeholder={info.card ? "0000 0000 0000 0000" : "Адрес кошелька"} style={wInp}/>
+        <Btn style={{marginTop:14,opacity: v.trim()?1:.5}} onClick={() => v.trim() && onSave(v.trim())}>Сохранить</Btn>
+      </div>
+    </Sh></Ov>
+  );
+}
+
+function MDeposit({ cur, cfg, onClose }) {
+  const [amt, setAmt] = useState(String(cfg.min));
+  const [comment, setComment] = useState("");
+  const [ok, setOk] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const n = parseFloat(amt);
+  const valid = !isNaN(n) && n >= cfg.min;
+  const copy = async () => { try { await navigator.clipboard.writeText(cfg.dep.value); } catch(e){} setCopied(true); setTimeout(()=>setCopied(false),1200); };
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Пополнить {cur}</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      {ok
+        ? <WSuccess title="Заявка отправлена" text={"Пополнение " + amt + " " + cur + " на проверке. Средства зачислятся после подтверждения."} onClose={onClose}/>
+        : <div style={{padding:"0 20px 24px"}}>
+            <div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16}}>
+              <p style={{fontSize:12,color:"#94A3B8",margin:"0 0 8px"}}>{cfg.dep.label}:</p>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                <span style={{fontSize:16,fontWeight:700,letterSpacing:1,color:"#333",wordBreak:"break-all"}}>{cfg.dep.value}</span>
+                <button onClick={copy} style={{width:38,height:38,borderRadius:10,border:"none",background:"#EFF6FF",cursor:"pointer",flexShrink:0,color:"#2F80ED",fontSize:16}}>{copied?"✓":"⧉"}</button>
+              </div>
+            </div>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>Сумма {cur}</p>
+            <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} style={wInp}/>
+            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>Минимум: {cfg.min} {cur}</p>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>Комментарий к переводу (необязательно)</p>
+            <input value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ваш комментарий" style={wInp}/>
+            <div style={{display:"flex",gap:10,marginTop:18}}>
+              <OBtn onClick={onClose}>Отменить</OBtn>
+              <Btn style={{opacity:valid?1:.5}} onClick={() => valid && setOk(true)}>Я оплатил</Btn>
+            </div>
+          </div>}
+    </Sh></Ov>
+  );
+}
+
+function MWithdraw({ cur, cfg, bal, onClose }) {
+  const [dest, setDest] = useState("");
+  const [amt, setAmt] = useState(String(cfg.min));
+  const [ok, setOk] = useState(false);
+  const isCard = cfg.reqs[0] && cfg.reqs[0].card;
+  const n = parseFloat(amt);
+  const valid = dest.trim() && !isNaN(n) && n >= cfg.min;
+  return (
+    <Ov onClose={onClose}><Sh>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 20px 10px"}}>
+        <h3 style={{fontSize:18,fontWeight:700,margin:0}}>Вывести {cur}</h3>
+        <XBtn onClick={onClose}/>
+      </div>
+      {ok
+        ? <WSuccess title="Заявка на вывод создана" text={"Вывод " + amt + " " + cur + " обрабатывается. Обычно занимает до 24 часов."} onClose={onClose}/>
+        : <div style={{padding:"0 20px 24px"}}>
+            <div style={{background:"#F8FAFC",border:"1px solid #E2E8F0",borderRadius:14,padding:14,marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <p style={{fontSize:11,color:"#94A3B8",margin:"0 0 2px",textTransform:"uppercase"}}>Доступно</p>
+                <p style={{fontSize:22,fontWeight:800,color:"#111",margin:0}}>{bal}</p>
+              </div>
+              <span style={{fontSize:13,fontWeight:700,color:"#64748B",background:"#EFF6FF",padding:"6px 12px",borderRadius:10}}>{cur}</span>
+            </div>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"0 0 6px"}}>{isCard ? "Номер карты" : "Адрес кошелька"}</p>
+            <input value={dest} onChange={e=>setDest(e.target.value)} placeholder={isCard ? "0000 0000 0000 0000" : "Адрес"} style={wInp}/>
+            <p style={{fontSize:13,fontWeight:600,color:"#333",margin:"14px 0 6px"}}>Сумма {cur}</p>
+            <input type="number" value={amt} onChange={e=>setAmt(e.target.value)} style={wInp}/>
+            <p style={{fontSize:11,color:"#94A3B8",margin:"6px 0 0"}}>Минимум: {cfg.min} {cur}</p>
+            <div style={{display:"flex",gap:10,marginTop:18}}>
+              <OBtn onClick={onClose}>Отменить</OBtn>
+              <Btn style={{opacity:valid?1:.5}} onClick={() => valid && setOk(true)}>Вывести</Btn>
+            </div>
+          </div>}
+    </Sh></Ov>
   );
 }
 
