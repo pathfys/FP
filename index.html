@@ -606,7 +606,9 @@ function App() {
       });
     } catch (e) {
       if (String(e.message).includes("403")) {
-        tgAlert("Сейчас это действие доступно только администратору.");
+        tgAlert(status === "paid"
+          ? "Сейчас оплату может внести только администратор."
+          : "Это действие доступно только участнику сделки для этого шага.");
         throw e;                                  // не двигаем статус локально
       }
       /* сеть недоступна — двигаем локально, чтобы демо продолжалось */
@@ -890,8 +892,12 @@ function DealView({ deal, me, myId, onUpd, onStatus, onJoin, onShare, onPay, onC
       </div>
 
       <div style={{...S.card, marginTop:12}}>
-        <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Сейчас</p>
-        <p style={{fontSize:14,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>{nowText(deal.status, role)}</p>
+        {deal.status !== "received" && (
+          <>
+            <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Сейчас</p>
+            <p style={{fontSize:14,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>{nowText(deal.status, role)}</p>
+          </>
+        )}
         <DealActions deal={deal} role={role} onUpd={onUpd} onStatus={onStatus} onJoin={onJoin}
                      onShare={onShare} onPay={onPay} isAdmin={isAdmin}/>
       </div>
@@ -921,21 +927,65 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
   const waiting = (txt) => (
     <p style={{textAlign:"center",color:"#94A3B8",fontWeight:600,margin:"2px 0",fontSize:13,lineHeight:1.5}}>{txt}</p>
   );
-  // на время: кнопку «Внести оплату» видит только администратор — в любой роли
+  // «Внести оплату» — только администратору (на время)
   const payBtn = isAdmin ? <Btn onClick={onPay}>💳 Внести оплату</Btn> : null;
+  // неактивная кнопка-статус (например «Ожидание покупателя»)
+  const idleBtn = (txt) => (
+    <button style={{...S.btn, background:"#F59E0B", opacity:.85, cursor:"default"}} disabled>{txt}</button>
+  );
 
-  switch (deal.status) {
-    case "created":
-      // ЭКРАН ПРОДАВЦА: реальное присоединение к сделке
-      if (role === "seller") {
+  // ── ЗАВЕРШЕНО: общая плашка для обоих участников ──
+  if (deal.status === "received") {
+    return (
+      <div style={{textAlign:"center", padding:"6px 0"}}>
+        <div style={{width:64,height:64,borderRadius:32,background:"#DCFCE7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16A34A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+        <p style={{fontSize:18,fontWeight:800,color:"#16A34A",margin:"0 0 10px"}}>Сделка успешно завершена!</p>
+        <p style={{fontSize:14,color:"#334155",margin:"0 0 4px"}}>Товар передан эскроу</p>
+        <p style={{fontSize:14,color:"#334155",margin:"0 0 12px"}}>Средства были зачислены продавцу на баланс</p>
+        <p style={{fontSize:15,fontWeight:800,color:"#111",margin:0}}>Спасибо за использование FunPay</p>
+      </div>
+    );
+  }
+  if (deal.status === "cancelled") {
+    return <p style={{textAlign:"center",color:"#EF4444",fontWeight:700,margin:0}}>❌ Сделка отменена</p>;
+  }
+
+  // ══ ПРОДАВЕЦ ══
+  if (role === "seller") {
+    switch (deal.status) {
+      case "created":   // ещё не присоединился (офлайн/заглушка)
         return (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <Btn onClick={() => onJoin(deal)}>✅ Присоединиться к сделке</Btn>
             {cancelBtn}
           </div>
         );
-      }
-      // ЭКРАН ПОКУПАТЕЛЯ (создатель): поделиться ссылкой продавцу + оплата (только админ)
+      case "joined":    // присоединился — ждём оплату покупателя
+        return (
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {idleBtn("⏳ Ожидание покупателя")}
+            {cancelBtn}
+          </div>
+        );
+      case "paid":      // покупатель оплатил — продавец передаёт товар в эскроу
+        return (
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <Btn onClick={() => onStatus(deal, "escrow")}>📦 Товар передан эскроу</Btn>
+            {cancelBtn}
+          </div>
+        );
+      case "escrow":    // товар передан — ждём подтверждения покупателя
+        return waiting("Товар передан эскроу. Ожидаем подтверждения покупателя.");
+      default:
+        return null;
+    }
+  }
+
+  // ══ ПОКУПАТЕЛЬ (создатель) ══
+  switch (deal.status) {
+    case "created":   // поделиться ссылкой продавцу + оплата (только админ)
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <Btn onClick={onShare}>🔗 Поделиться сделкой</Btn>
@@ -943,33 +993,20 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
           {cancelBtn}
         </div>
       );
-    case "joined":
-      // «Внести оплату» — только администратору, НЕЗАВИСИМО от роли (на время)
+    case "joined":    // продавец присоединился — вносим оплату (только админ)
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {payBtn}
-          {!isAdmin && waiting(role === "seller"
-            ? "Ожидаем оплату от покупателя…"
-            : "Ожидаем оплату. Сейчас оплату вносит только администратор.")}
+          {!isAdmin && waiting("Продавец присоединился. Сейчас оплату вносит только администратор.")}
           {cancelBtn}
         </div>
       );
-    case "paid":
-      // передача товара в эскроу — на время подтверждает администратор
-      return isAdmin
-        ? <Btn onClick={() => onStatus(deal, "escrow")}>📦 Товар передан в эскроу</Btn>
-        : waiting(role === "seller"
-            ? "Передайте товар менеджеру-эскроу " + ESCROW_MANAGER + ". Ожидаем подтверждения."
-            : "Оплата в эскроу. Ожидаем передачу товара продавцом.");
-    case "escrow":
-      // подтверждение получения — на время подтверждает администратор
-      return isAdmin
-        ? <Btn onClick={() => onStatus(deal, "received")}>✓ Подтвердить получение</Btn>
-        : waiting("Товар у менеджера-эскроу. Ожидаем подтверждения получения.");
-    case "received":
-      return <p style={{textAlign:"center",color:"#16A34A",fontWeight:700,margin:0}}>✅ Сделка завершена</p>;
+    case "paid":      // оплатили — ждём передачу товара в эскроу продавцом
+      return waiting("Оплата в эскроу. Ожидаем передачу товара продавцом.");
+    case "escrow":    // продавец передал товар — покупатель завершает сделку
+      return <Btn onClick={() => onStatus(deal, "received")}>✓ Завершить сделку</Btn>;
     default:
-      return <p style={{textAlign:"center",color:"#EF4444",fontWeight:700,margin:0}}>❌ Сделка отменена</p>;
+      return null;
   }
 }
 
