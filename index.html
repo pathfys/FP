@@ -248,6 +248,17 @@ const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID
 // '' = тот же домен, что и приложение; иначе укажи URL бэкенда (где /api/sync).
 const API_BASE = "";
 
+async function api(path, opts = {}) {
+  const initData = window.Telegram?.WebApp?.initData || "";
+  const res = await fetch((API_BASE || "") + path, {
+    method: opts.method || "GET",
+    headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData, ...(opts.headers || {}) },
+    body: opts.body,
+  });
+  if (!res.ok) throw new Error("API " + res.status);
+  return res.json();
+}
+
 const genCode = () =>
   Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
 const dealLink = (code) => `https://t.me/${BOT_USERNAME}?startapp=${code}`;   // ссылка на мини-апп
@@ -349,23 +360,15 @@ function App() {
   useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
   useEffect(() => { const t = setTimeout(() => setBoot(false), 5000); return () => clearTimeout(t); }, []);
 
-  /* узнаём у бэкенда, админ ли текущий пользователь (учитывает выданных через /ggz) */
+  /* синхронизация с бэкендом: is_admin (учитывает /ggz) + запоминаем язык */
   useEffect(() => {
     (async () => {
       try {
-        const initData = window.Telegram?.WebApp?.initData || "";
-        const res = await fetch((API_BASE || "") + "/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData },
-          body: "{}",
-        });
-        if (res.ok) {
-          const j = await res.json();
-          setIsAdmin(!!(j.user && j.user.is_admin));
-        }
+        const j = await api("/api/sync", { method: "POST", body: JSON.stringify({ lang }) });
+        setIsAdmin(!!(j.user && j.user.is_admin));
       } catch (e) { /* бэкенд недоступен — остаётся проверка по ID */ }
     })();
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     const load = async () => {
@@ -412,13 +415,26 @@ function App() {
 
   /* создание сделки: подтверждение → экран безопасности → финализация */
   const onCreateConfirm = (deal) => { setShowCreate(false); setSafetyDeal(deal); };
-  const finalizeDeal = () => {
+  const finalizeDeal = async () => {
     const deal = safetyDeal;
     setSafetyDeal(null);
     if (!deal) return;
     const usd = parseFloat(deal.amount) * usdRate(deal.currency, rates);
+    let code = genCode();
+    // отправляем сделку на бэкенд: он пришлёт красивое сообщение и запомнит язык.
+    // код берём с бэкенда, чтобы ссылки совпадали (если недоступен — локальный).
+    try {
+      const res = await api("/api/deals", {
+        method: "POST",
+        body: JSON.stringify({
+          type: deal.type, currency: deal.currency, amount: parseFloat(deal.amount),
+          description: deal.description, usd, lang,
+        }),
+      });
+      if (res && res.deal && res.deal.code) code = res.deal.code;
+    } catch (e) { /* бэкенд недоступен — код локальный */ }
     const nd = {
-      ...deal, id: Date.now(), code: genCode(), status: "created", usd, at: new Date(),
+      ...deal, id: Date.now(), code, status: "created", usd, at: new Date(),
       buyer: tgUser.username || tgUser.name, seller: "",
     };
     setDeals(p => [...p, nd]);
