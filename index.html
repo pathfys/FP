@@ -246,7 +246,7 @@ const COMMISSION     = 0.01;                    // 1%
 const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде) — запасной вариант офлайн
 const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID);
 // '' = тот же домен, что и приложение; иначе укажи URL бэкенда (где /api/sync).
-const API_BASE = "https://pathfys.github.io/FP/";
+const API_BASE = "";
 
 async function api(path, opts = {}) {
   const initData = window.Telegram?.WebApp?.initData || "";
@@ -936,9 +936,9 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
   const waiting = (txt) => (
     <p style={{textAlign:"center",color:"#94A3B8",fontWeight:600,margin:"2px 0",fontSize:13,lineHeight:1.5}}>{txt}</p>
   );
-  // «Внести оплату» вносит покупатель (создатель) или администратор
-  const canPay = isAdmin || role === "buyer";
-  const payBtn = canPay ? <Btn onClick={onPay}>💳 Внести оплату</Btn> : null;
+  // «Внести оплату» — кнопка видна ВСЕМ, но фактически оплату проводит только
+  // администратор (проверка на бэкенде: не-админ получит уведомление).
+  const payBtn = <Btn onClick={onPay}>💳 Внести оплату</Btn>;
   // неактивная кнопка-статус (например «Ожидание покупателя»)
   const idleBtn = (txt) => (
     <button style={{...S.btn, background:"#F59E0B", opacity:.85, cursor:"default"}} disabled>{txt}</button>
@@ -1231,7 +1231,7 @@ function MWithdraw({ cur, cfg, bal, onClose }) {
 /* ══════════════════════════════════
    PAGE: LEADERS
    ══════════════════════════════════ */
-/* демо-данные лидеров (замени на данные с бэка /api/leaders) */
+/* демо-данные лидеров (10 мест). Реальные данные подтянутся с /api/leaders */
 const LEADERS = [
   { name:"die-r", amount:1252, deals:14 },
   { name:"Tkach", amount:1144, deals:11 },
@@ -1239,12 +1239,31 @@ const LEADERS = [
   { name:"илюша", amount:901,  deals:10 },
   { name:"maxim", amount:820,  deals:8  },
   { name:"kira",  amount:640,  deals:6  },
+  { name:"Артём", amount:585,  deals:7  },
+  { name:"Sonya", amount:512,  deals:5  },
+  { name:"deniz", amount:430,  deals:5  },
+  { name:"vlad",  amount:388,  deals:4  },
 ];
 const initialOf = (n) => (n && n[0] ? n[0].toUpperCase() : "?");
 
 function PgLead() {
-  const top = LEADERS.slice(0, 3);
-  const rest = LEADERS.slice(3);
+  const [rows, setRows] = useState(LEADERS);
+  useEffect(() => {
+    (async () => {
+      try {
+        const j = await api("/api/leaders");
+        if (j && Array.isArray(j.leaders) && j.leaders.length) {
+          setRows(j.leaders.slice(0, 10).map(x => ({
+            name: (x.name || "User").replace(/^@/, ""),
+            amount: Math.round(x.volume || 0),
+            deals: x.deals || 0,
+          })));
+        }
+      } catch (e) { /* бэкенд недоступен — показываем демо-топ */ }
+    })();
+  }, []);
+  const top = rows.slice(0, 3);
+  const rest = rows.slice(3, 10);   // места 4–10
   const podium = [
     top[1] && { ...top[1], place:2, h:74,  medal:"🥈", ring:"#CBD5E1", bar:"linear-gradient(180deg,#E2E8F0,#94A3B8)", av:50 },
     top[0] && { ...top[0], place:1, h:106, medal:"🥇", ring:"#FACC15", bar:"linear-gradient(180deg,#FDE68A,#D97706)", av:62 },
@@ -1277,7 +1296,7 @@ function PgLead() {
 
       <div style={{marginTop:14,display:"flex",flexDirection:"column",gap:8}}>
         {rest.map((u, i) => (
-          <div key={u.name} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"12px 14px"}}>
+          <div key={i} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"12px 14px"}}>
             <div style={{width:20,textAlign:"center",fontWeight:700,color:"#94A3B8"}}>{i + 4}</div>
             <div style={{width:38,height:38,borderRadius:19,background:"linear-gradient(135deg,#3B9BFF,#2F80ED)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700}}>{initialOf(u.name)}</div>
             <div style={{flex:1,minWidth:0}}>
