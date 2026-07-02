@@ -240,7 +240,7 @@ const WALL_TABS = ["GRAM","USDT","STARS","BTC","ETH","RUB"];
 /* ════════════════════════════════════════════
    ESCROW / SHARE CONFIG + HELPERS
    ════════════════════════════════════════════ */
-const BOT_USERNAME   = "FunPayDeal_Robot";     // имя бота без @ (deep-link)
+const BOT_USERNAME   = "FunPayGiftsBot";       // юзер бота (без @)
 const ESCROW_MANAGER = "@FunPayRelayer";
 const COMMISSION     = 0.01;                    // 1%
 const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде)
@@ -248,7 +248,7 @@ const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID
 
 const genCode = () =>
   Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
-const dealLink = (code) => `https://t.me/${BOT_USERNAME}?start=${code}`;
+const dealLink = (code) => `https://t.me/${BOT_USERNAME}?startapp=${code}`;   // ссылка на мини-апп
 
 const ESCROW_STEPS = ["Создана","Покупатель","Оплачена","В эскроу","Получена"];
 const STATUS_STEP  = { created:1, joined:2, paid:3, escrow:4, received:5, cancelled:0 };
