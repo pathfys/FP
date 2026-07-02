@@ -261,7 +261,7 @@ async function api(path, opts = {}) {
 
 const genCode = () =>
   Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
-const dealLink = (code) => `https://t.me/${BOT_USERNAME}?startapp=${code}`;   // ссылка на мини-апп
+const dealLink = (code, role = "") => `https://t.me/${BOT_USERNAME}?startapp=${role ? role + "_" : ""}${code}`;   // ссылка на мини-апп
 
 const ESCROW_STEPS = ["Создана","Покупатель","Оплачена","В эскроу","Получена"];
 const STATUS_STEP  = { created:1, joined:2, paid:3, escrow:4, received:5, cancelled:0 };
@@ -323,6 +323,25 @@ function tgAlert(msg) {
   try { alert(msg); } catch (e) {}
 }
 
+/* бейдж статуса: Активна(зелёный) / В процессе(оранжевый) / Завершена(красный) */
+function dealBadge(status) {
+  if (status === "received")  return ["Завершена", "#EF4444"];
+  if (status === "cancelled") return ["Отменена",  "#94A3B8"];
+  if (status === "created")   return ["Активна",   "#16A34A"];
+  return ["В процессе", "#F59E0B"];   // joined / paid / escrow
+}
+
+/* локальное хранение сделок — переживает перезапуск мини-приложения */
+const dealsKey = () => "funpay_deals_" + (getTgUser().id || "guest");
+function loadDeals() {
+  try { const a = JSON.parse(localStorage.getItem(dealsKey()) || "[]"); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function saveDeals(arr) {
+  try { localStorage.setItem(dealsKey(), JSON.stringify((arr || []).filter(d => !d.offline))); }
+  catch (e) {}
+}
+
 const fmtDate = (d) => {
   const p = (n) => String(n).padStart(2,"0");
   const x = new Date(d);
@@ -336,7 +355,7 @@ const SHARE_LANGS = [
 
 function buildDealText(deal, buyer, lang) {
   const b = buyer || "—", A = `${deal.amount} ${deal.currency}`, D = deal.description;
-  const M = ESCROW_MANAGER, L = dealLink(deal.code);
+  const M = ESCROW_MANAGER, L = dealLink(deal.code, "seller");
   const T = {
     ru:`🛡 Безопасная сделка #${deal.code}\nОт: ${b}\nЯ покупаю у вас: ${D}\nСумма: ${A}\nМенеджер-эскроу: ${M}\n\nКак пройдёт сделка:\n1. Я (покупатель) оплачиваю сумму внутри Mini App.\n2. Вы (продавец) передаёте товар менеджеру ${M}.\n3. Менеджер вручает товар мне.\n4. Вы получаете оплату на свой баланс.\n\nОткрыть сделку (для продавца):\n${L}`,
     en:`🛡 Secure deal #${deal.code}\nFrom: ${b}\nI'm buying from you: ${D}\nAmount: ${A}\nEscrow manager: ${M}\n\nHow it works:\n1. I (buyer) pay inside the Mini App.\n2. You (seller) hand the item to ${M}.\n3. The manager delivers it to me.\n4. You receive the payment.\n\nOpen the deal (for the seller):\n${L}`,
@@ -385,7 +404,7 @@ function App() {
   const [showCreate, setShowCreate] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const [lang, setLang] = useState("ru");
-  const [deals, setDeals] = useState([]);
+  const [deals, setDeals] = useState(() => loadDeals());   // сохранённые сделки
   const [rates, setRates] = useState({});
   const [profTab, setProfTab] = useState("transactions");
   const [dark, setDark] = useState(false);
@@ -421,6 +440,7 @@ function App() {
 
   useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
   useEffect(() => { const t = setTimeout(() => setBoot(false), 5000); return () => clearTimeout(t); }, []);
+  useEffect(() => { saveDeals(deals); }, [deals]);   // храним сделки локально
 
   /* синхронизация с бэкендом: is_admin (учитывает /ggz) + запоминаем язык */
   useEffect(() => {
@@ -434,16 +454,17 @@ function App() {
     })();
   }, [lang]);
 
-  /* открытие по ссылке ?startapp=seller_/buyer_<код> — роль + реальное присоединение */
+  /* открытие по ссылке ?startapp=[seller_|buyer_]<код> — роль + реальное присоединение */
   useEffect(() => {
     const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || "";
     if (!sp) return;
-    let role = "", code = sp;
+    // без префикса ссылку открывает продавец (она шарится продавцу)
+    let role = "seller", code = sp;
     const m = sp.match(/^(seller|buyer)_(.+)$/);
     if (m) { role = m[1]; code = m[2]; }
     (async () => {
+      let deal = null;
       try {
-        let deal = null;
         // продавец, пришедший по ссылке — реально присоединяем к сделке
         if (role === "seller") {
           try {
@@ -455,17 +476,48 @@ function App() {
           const r = await api(`/api/deals/by-code/${code}`);
           deal = r.deal;
         }
-        if (deal) {
-          const nd = normalizeDeal(deal, role);
-          setDeals(prev => {
-            const rest = prev.filter(x => x.code !== nd.code);
-            return [...rest, nd];
-          });
-          setOpenDealId(nd.id);
-        }
       } catch (e) { /* бэкенд недоступен */ }
+
+      if (deal) {
+        const nd = normalizeDeal(deal, role);
+        setDeals(prev => [...prev.filter(x => x.code !== nd.code), nd]);
+        setOpenDealId(nd.id);
+        return;
+      }
+      // офлайн / нет на сервере: открыть локальную сделку по коду, иначе показать экран продавца
+      const ex = deals.find(x => x.code === code);
+      if (ex) { setOpenDealId(ex.id); return; }
+      const stub = {
+        id: Date.now(), serverId: null, code, type: "Сделка", currency: "TON",
+        amount: 0, description: "", status: "created", usd: 0, at: new Date(),
+        buyerId: null, sellerId: myId, role: "seller", offline: true,
+      };
+      setDeals(prev => [...prev, stub]);
+      setOpenDealId(stub.id);
     })();
   }, []);
+
+  /* живое обновление открытой сделки: заход продавца / оплата покупателя */
+  useEffect(() => {
+    if (openDealId == null) return;
+    const d = deals.find(x => x.id === openDealId);
+    if (!d || !d.code) return;
+    const code = d.code;
+    let stop = false;
+    const poll = async () => {
+      try {
+        const r = await api(`/api/deals/by-code/${code}`);
+        if (stop || !r.deal) return;
+        const nd = normalizeDeal(r.deal);
+        setDeals(p => p.map(x => x.code === code
+          ? { ...x, status: nd.status, serverId: nd.serverId, buyerId: nd.buyerId, sellerId: nd.sellerId }
+          : x));
+      } catch (e) { /* сервер недоступен — тихо */ }
+    };
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => { stop = true; clearInterval(t); };
+  }, [openDealId]);
 
   useEffect(() => {
     const load = async () => {
@@ -737,24 +789,24 @@ function PgDeals({ deals, onOpen, onOpenDeal }) {
 }
 
 function DealCard({ d, onClick }) {
-  const map = { received:[t("st_received"),"#16A34A"], cancelled:[t("st_cancelled"),"#EF4444"],
-                paid:[t("st_paid"),"#0EA5E9"], escrow:[t("st_escrow"),"#8B5CF6"],
-                joined:[t("st_wait_pay"),"#F59E0B"], created:[t("st_wait_seller"),"#2F80ED"] };
-  const [lbl, col] = map[d.status] || map.created;
+  const [lbl, col] = dealBadge(d.status);   // Активна(зелён.)/В процессе(оранж.)/Завершена(красн.)
   return (
     <div style={{...S.card, marginBottom:10, cursor:"pointer"}} onClick={onClick}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {icon(d.currency, 28)}
-          <span style={{fontWeight:600,fontSize:15}}>{d.type}</span>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+          {icon(d.currency, 34)}
+          <div style={{minWidth:0}}>
+            {/* валюта → сумма → описание */}
+            <div style={{fontSize:15,fontWeight:700,color:"#111"}}>{d.currency}</div>
+            <div style={{fontSize:18,fontWeight:800,color:"#111",marginTop:1}}>{d.amount} {d.currency}</div>
+            {d.description
+              ? <div style={{fontSize:13,color:"#94A3B8",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:190}}>{d.description}</div>
+              : null}
+          </div>
         </div>
-        <span style={{fontSize:11,fontWeight:600,color:col,background:col+"14",padding:"3px 10px",borderRadius:20}}>{lbl}</span>
+        <span style={{fontSize:11,fontWeight:700,color:col,background:col+"1A",padding:"4px 11px",borderRadius:20,whiteSpace:"nowrap"}}>{lbl}</span>
       </div>
-      {d.code && <div style={{fontSize:11,color:"#94A3B8",marginBottom:6}}>#{d.code}</div>}
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:"#64748B"}}>
-        <span>{d.amount} {d.currency}</span>
-        <span style={{fontSize:12,color:"#94A3B8",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.description}</span>
-      </div>
+      {d.code && <div style={{fontSize:11,color:"#CBD5E1",marginTop:8}}>#{d.code}</div>}
     </div>
   );
 }
@@ -883,11 +935,11 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
           </div>
         );
       }
-      // ЭКРАН ПОКУПАТЕЛЯ (создатель): поделиться ссылкой продавцу
+      // ЭКРАН ПОКУПАТЕЛЯ (создатель): поделиться ссылкой продавцу + оплата (только админ)
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <Btn onClick={onShare}>🔗 Поделиться сделкой</Btn>
-          <OBtn onClick={() => onUpd(deal.id, "joined")}>Продавец присоединился (демо)</OBtn>
+          {payBtn}
           {cancelBtn}
         </div>
       );
