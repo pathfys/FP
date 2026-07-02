@@ -354,6 +354,7 @@ function App() {
   const [payDeal, setPayDeal] = useState(null);
   const [boot, setBoot] = useState(true);
   const [isAdmin, setIsAdmin] = useState(IS_ADMIN);   // старт: главный админ по ID (офлайн-запас)
+  const [banned, setBanned] = useState(false);        // забаненным — пустой белый экран
   const openedDeal = deals.find(d => d.id === openDealId) || null;
   __lang = lang;   // текущий язык для t() — задаём до рендера детей
 
@@ -366,6 +367,7 @@ function App() {
       try {
         const j = await api("/api/sync", { method: "POST", body: JSON.stringify({ lang }) });
         setIsAdmin(!!(j.user && j.user.is_admin));
+        setBanned(!!(j.user && j.user.banned));
       } catch (e) { /* бэкенд недоступен — остаётся проверка по ID */ }
     })();
   }, [lang]);
@@ -448,6 +450,11 @@ function App() {
     { pair:"GBP/USD", ic:"GBP" },{ pair:"UAH/USD", ic:"UAH" },{ pair:"CNY/USD", ic:"CNY" },
     { pair:"AED/USD", ic:"AED" },{ pair:"KZT/USD", ic:"KZT" },
   ];
+
+  // забаненный пользователь: просто пустой белый экран
+  if (banned) {
+    return <div style={{ position:"fixed", inset:0, background:"#fff", zIndex:99999 }} />;
+  }
 
   return (
     <div style={S.root}>
