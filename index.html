@@ -487,8 +487,9 @@ function App() {
       // офлайн / нет на сервере: открыть локальную сделку по коду, иначе показать экран продавца
       const ex = deals.find(x => x.code === code);
       if (ex) { setOpenDealId(ex.id); return; }
+      // данные сделки живут на бэкенде — без него их не получить (offline: true)
       const stub = {
-        id: Date.now(), serverId: null, code, type: "Сделка", currency: "TON",
+        id: Date.now(), serverId: null, code, type: "Сделка", currency: "",
         amount: 0, description: "", status: "created", usd: 0, at: new Date(),
         buyerId: null, sellerId: myId, role: "seller", offline: true,
       };
@@ -862,6 +863,12 @@ function DealView({ deal, me, myId, onUpd, onStatus, onJoin, onShare, onPay, onC
       </div>
       <div style={{height:14}}/>
 
+      {deal.offline && (
+        <div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:14,padding:"12px 14px",marginBottom:12,fontSize:13,color:"#92400E",lineHeight:1.5}}>
+          ⚠️ Не удалось загрузить сделку с сервера. Данные (сумма, товар) хранятся на бэкенде — убедитесь, что он запущен и <b>API_BASE</b> указывает на его адрес.
+        </div>
+      )}
+
       <div style={{...S.card, background:"#F8FAFC"}}>
         <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Статус сделки</p>
         <p style={{fontSize:16,fontWeight:700,color:"#111",margin:"0 0 16px"}}>
@@ -872,10 +879,12 @@ function DealView({ deal, me, myId, onUpd, onStatus, onJoin, onShare, onPay, onC
       </div>
 
       <div style={{...S.card, marginTop:12, display:"flex",alignItems:"center",gap:14}}>
-        {icon(deal.currency, 44)}
+        {icon(deal.currency || "GRAM", 44)}
         <div style={{minWidth:0}}>
-          <p style={{fontSize:22,fontWeight:800,color:"#111",margin:0}}>{deal.amount} {deal.currency}</p>
-          <p style={{fontSize:13,color:"#94A3B8",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deal.description}</p>
+          <p style={{fontSize:22,fontWeight:800,color:"#111",margin:0}}>
+            {deal.offline ? "— " : `${deal.amount} ${deal.currency}`}
+          </p>
+          <p style={{fontSize:13,color:"#94A3B8",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{deal.description || (deal.offline ? "Данные на сервере" : "")}</p>
         </div>
       </div>
 
@@ -927,8 +936,9 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
   const waiting = (txt) => (
     <p style={{textAlign:"center",color:"#94A3B8",fontWeight:600,margin:"2px 0",fontSize:13,lineHeight:1.5}}>{txt}</p>
   );
-  // «Внести оплату» — только администратору (на время)
-  const payBtn = isAdmin ? <Btn onClick={onPay}>💳 Внести оплату</Btn> : null;
+  // «Внести оплату» вносит покупатель (создатель) или администратор
+  const canPay = isAdmin || role === "buyer";
+  const payBtn = canPay ? <Btn onClick={onPay}>💳 Внести оплату</Btn> : null;
   // неактивная кнопка-статус (например «Ожидание покупателя»)
   const idleBtn = (txt) => (
     <button style={{...S.btn, background:"#F59E0B", opacity:.85, cursor:"default"}} disabled>{txt}</button>
@@ -985,7 +995,7 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
 
   // ══ ПОКУПАТЕЛЬ (создатель) ══
   switch (deal.status) {
-    case "created":   // поделиться ссылкой продавцу + оплата (только админ)
+    case "created":   // поделиться ссылкой продавцу + внести оплату
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <Btn onClick={onShare}>🔗 Поделиться сделкой</Btn>
@@ -993,11 +1003,10 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
           {cancelBtn}
         </div>
       );
-    case "joined":    // продавец присоединился — вносим оплату (только админ)
+    case "joined":    // продавец присоединился — покупатель вносит оплату
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {payBtn}
-          {!isAdmin && waiting("Продавец присоединился. Сейчас оплату вносит только администратор.")}
           {cancelBtn}
         </div>
       );
