@@ -87,7 +87,7 @@ const T = {
     pr_hide_zero:"Скрыть нулевые", pr_all_zero:"Все балансы нулевые", pr_stats:"Статистика сделок",
     pr_success:"Успешных", pr_completed:"Завершённых", pr_cancelled:"Отменённых", pr_total:"Всего",
     pr_turnover:"Торговый оборот", pr_rates:"Курсы валют", pr_updated:"Обновляется каждые 60 сек",
-    lang_title:"Язык",
+    lang_title:"Язык", pay_admin_only:"Оплату может внести только администратор",
   },
   en: {
     nav_deals:"Deals", nav_wallets:"Wallets", nav_leaders:"Leaders", nav_profile:"Profile",
@@ -111,7 +111,7 @@ const T = {
     pr_hide_zero:"Hide zero", pr_all_zero:"All balances are zero", pr_stats:"Deal statistics",
     pr_success:"Successful", pr_completed:"Completed", pr_cancelled:"Cancelled", pr_total:"Total",
     pr_turnover:"Trading volume", pr_rates:"Exchange rates", pr_updated:"Updates every 60 sec",
-    lang_title:"Language",
+    lang_title:"Language", pay_admin_only:"Only an administrator can pay",
   },
   uk: {
     nav_deals:"Угоди", nav_wallets:"Гаманці", nav_leaders:"Лідери", nav_profile:"Профіль",
@@ -135,7 +135,7 @@ const T = {
     pr_hide_zero:"Приховати нульові", pr_all_zero:"Усі баланси нульові", pr_stats:"Статистика угод",
     pr_success:"Успішних", pr_completed:"Завершених", pr_cancelled:"Скасованих", pr_total:"Усього",
     pr_turnover:"Торговий оборот", pr_rates:"Курси валют", pr_updated:"Оновлюється кожні 60 с",
-    lang_title:"Мова",
+    lang_title:"Мова", pay_admin_only:"Оплату може внести лише адміністратор",
   },
   zh: {
     nav_deals:"交易", nav_wallets:"钱包", nav_leaders:"排行榜", nav_profile:"个人",
@@ -159,7 +159,7 @@ const T = {
     pr_hide_zero:"隐藏零余额", pr_all_zero:"所有余额为零", pr_stats:"交易统计",
     pr_success:"成功", pr_completed:"已完成", pr_cancelled:"已取消", pr_total:"总计",
     pr_turnover:"交易额", pr_rates:"汇率", pr_updated:"每 60 秒更新",
-    lang_title:"语言",
+    lang_title:"语言", pay_admin_only:"只有管理员才能付款",
   },
   ar: {
     nav_deals:"الصفقات", nav_wallets:"المحافظ", nav_leaders:"المتصدرون", nav_profile:"الملف",
@@ -183,7 +183,7 @@ const T = {
     pr_hide_zero:"إخفاء الصفري", pr_all_zero:"كل الأرصدة صفر", pr_stats:"إحصائيات الصفقات",
     pr_success:"ناجحة", pr_completed:"مكتملة", pr_cancelled:"ملغاة", pr_total:"الإجمالي",
     pr_turnover:"حجم التداول", pr_rates:"أسعار الصرف", pr_updated:"يُحدَّث كل 60 ثانية",
-    lang_title:"اللغة",
+    lang_title:"اللغة", pay_admin_only:"يمكن للمشرف فقط الدفع",
   },
 };
 function t(key, vars) {
@@ -243,8 +243,10 @@ const WALL_TABS = ["GRAM","USDT","STARS","BTC","ETH","RUB"];
 const BOT_USERNAME   = "FunPayGiftsBot";       // юзер бота (без @)
 const ESCROW_MANAGER = "@FunPayRelayer";
 const COMMISSION     = 0.01;                    // 1%
-const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде)
+const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде) — запасной вариант офлайн
 const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID);
+// '' = тот же домен, что и приложение; иначе укажи URL бэкенда (где /api/sync).
+const API_BASE = "";
 
 const genCode = () =>
   Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
@@ -340,11 +342,30 @@ function App() {
   const [shareDeal, setShareDeal] = useState(null);
   const [payDeal, setPayDeal] = useState(null);
   const [boot, setBoot] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(IS_ADMIN);   // старт: главный админ по ID (офлайн-запас)
   const openedDeal = deals.find(d => d.id === openDealId) || null;
   __lang = lang;   // текущий язык для t() — задаём до рендера детей
 
   useEffect(() => { document.body.classList.toggle("dark", dark); }, [dark]);
   useEffect(() => { const t = setTimeout(() => setBoot(false), 5000); return () => clearTimeout(t); }, []);
+
+  /* узнаём у бэкенда, админ ли текущий пользователь (учитывает выданных через /ggz) */
+  useEffect(() => {
+    (async () => {
+      try {
+        const initData = window.Telegram?.WebApp?.initData || "";
+        const res = await fetch((API_BASE || "") + "/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": initData },
+          body: "{}",
+        });
+        if (res.ok) {
+          const j = await res.json();
+          setIsAdmin(!!(j.user && j.user.is_admin));
+        }
+      } catch (e) { /* бэкенд недоступен — остаётся проверка по ID */ }
+    })();
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -422,7 +443,7 @@ function App() {
       <div style={S.body}>
         <div key={openedDeal ? ("deal-" + openDealId) : tab} className="tabfade">
         {openedDeal
-          ? <DealView deal={openedDeal} me={tgUser.username} onUpd={updDeal}
+          ? <DealView deal={openedDeal} me={tgUser.username} onUpd={updDeal} isAdmin={isAdmin}
                       onShare={() => setShareDeal(openedDeal)} onPay={() => setPayDeal(openedDeal)}
                       onClose={() => setOpenDealId(null)} />
           : <>
@@ -451,7 +472,7 @@ function App() {
       {showCreate && <MCreateDeal onClose={() => setShowCreate(false)} onDone={onCreateConfirm} />}
       {safetyDeal && <MSafety onClose={() => setSafetyDeal(null)} onConfirm={finalizeDeal} />}
       {shareDeal  && <MShareDeal deal={shareDeal} buyer={shareDeal.buyer || tgUser.username} onClose={() => setShareDeal(null)} />}
-      {payDeal    && <MPayDeal deal={payDeal} onPaid={(id) => updDeal(id, "paid")} onClose={() => setPayDeal(null)} />}
+      {payDeal    && <MPayDeal deal={payDeal} isAdmin={isAdmin} onPaid={(id) => updDeal(id, "paid")} onClose={() => setPayDeal(null)} />}
       {showLang && <MLang cur={lang} onPick={l => { setLang(l); setShowLang(false); }} onClose={() => setShowLang(false)} />}
       <Splash done={!boot} onDone={() => setBoot(false)} />
     </div>
@@ -610,7 +631,7 @@ function EscrowSteps({ status }) {
 /* ══════════════════════════════════
    DEAL VIEW (full page)
    ══════════════════════════════════ */
-function DealView({ deal, me, onUpd, onShare, onPay, onClose }) {
+function DealView({ deal, me, onUpd, onShare, onPay, onClose, isAdmin }) {
   const cur = STATUS_STEP[deal.status] ?? 1;
   const amt = parseFloat(deal.amount) || 0;
   const fee = amt * COMMISSION;
@@ -653,7 +674,7 @@ function DealView({ deal, me, onUpd, onShare, onPay, onClose }) {
       <div style={{...S.card, marginTop:12}}>
         <p style={{fontSize:11,letterSpacing:.5,color:"#94A3B8",margin:"0 0 8px",textTransform:"uppercase"}}>Сейчас</p>
         <p style={{fontSize:14,color:"#334155",margin:"0 0 14px",lineHeight:1.5}}>{NOW_TEXT[deal.status]}</p>
-        <DealActions deal={deal} onUpd={onUpd} onShare={onShare} onPay={onPay}/>
+        <DealActions deal={deal} onUpd={onUpd} onShare={onShare} onPay={onPay} isAdmin={isAdmin}/>
       </div>
 
       <div style={{...S.card, marginTop:12, marginBottom:20}}>
@@ -674,7 +695,7 @@ function DealView({ deal, me, onUpd, onShare, onPay, onClose }) {
   );
 }
 
-function DealActions({ deal, onUpd, onShare, onPay }) {
+function DealActions({ deal, onUpd, onShare, onPay, isAdmin }) {
   const cancelBtn = (
     <button style={{...S.oBtn, color:"#EF4444", borderColor:"#FCA5A5"}} onClick={() => onUpd(deal.id, "cancelled")}>Отменить сделку</button>
   );
@@ -690,9 +711,7 @@ function DealActions({ deal, onUpd, onShare, onPay }) {
     case "joined":
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {IS_ADMIN
-            ? <Btn onClick={onPay}>💳 Внести оплату</Btn>
-            : <div style={{textAlign:"center",color:"#94A3B8",fontSize:13,padding:"8px 0"}}>⏳ Оплату вносит администратор</div>}
+          {isAdmin && <Btn onClick={onPay}>💳 Внести оплату</Btn>}
           {cancelBtn}
         </div>
       );
@@ -1258,7 +1277,7 @@ function MShareDeal({ deal, buyer, onClose }) {
 /* ══════════════════════════════════
    MODAL: PAY DEAL (stub, 3 taps)
    ══════════════════════════════════ */
-function MPayDeal({ deal, onPaid, onClose }) {
+function MPayDeal({ deal, onPaid, onClose, isAdmin }) {
   const [step, setStep] = useState(1);   // 3 нажатия: Продолжить → Оплатить → Готово
   const amt = parseFloat(deal.amount) || 0;
   const total = (amt * (1 + COMMISSION)).toFixed(2);
