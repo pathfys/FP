@@ -246,7 +246,7 @@ const COMMISSION     = 0.01;                    // 1%
 const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде) — запасной вариант офлайн
 const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID);
 // '' = тот же домен, что и приложение; иначе укажи URL бэкенда (где /api/sync).
-const API_BASE = " https://gras-kit-bowl-broker.trycloudflare.com";
+const API_BASE = "";
 
 async function api(path, opts = {}) {
   const initData = window.Telegram?.WebApp?.initData || "";
@@ -271,31 +271,33 @@ const STATUS_TEXT = {
   paid:"Оплачено · передача товара", escrow:"В эскроу",
   received:"Завершена", cancelled:"Отменена",
 };
+/* Текст «Сейчас» — ПОКУПАТЕЛЬ */
 const NOW_TEXT = {
-  created:"Ожидаем продавца. Поделитесь ссылкой, чтобы он присоединился к сделке.",
-  joined:"Продавец присоединился. Внесите оплату — средства попадут в эскроу.",
-  paid:"Оплата в эскроу. Ожидаем передачу товара менеджеру " + ESCROW_MANAGER + ".",
-  escrow:"Товар у менеджера-эскроу. Подтвердите получение, когда получите его.",
+  created:"Сделка создана. Отправьте ссылку продавцу, чтобы он присоединился.",
+  joined:"Продавец присоединился. Внесите оплату — средства уйдут в эскроу.",
+  paid:"Оплата в эскроу. Ожидаем, пока продавец передаст товар.",
+  escrow:"Продавец передал товар в эскроу. Подтвердите завершение сделки.",
   received:"Сделка успешно завершена. Спасибо!",
   cancelled:"Сделка отменена.",
 };
-/* Текст «Сейчас» для продавца (роль seller) */
+/* Текст «Сейчас» — ПРОДАВЕЦ */
 const NOW_TEXT_SELLER = {
-  created:"Вы открыли сделку как продавец. Нажмите «Присоединиться», чтобы подтвердить участие.",
-  joined:"Вы присоединились к сделке. Ожидаем оплату от покупателя.",
-  paid:"Покупатель оплатил! Передайте товар менеджеру-эскроу " + ESCROW_MANAGER + ".",
-  escrow:"Товар у менеджера-эскроу. Ожидаем подтверждения получения покупателем.",
-  received:"Сделка завершена — оплата зачислена. Спасибо!",
+  created:"Вы открыли сделку как продавец. Нажмите «Присоединиться к сделке».",
+  joined:"Вы присоединились. Ожидаем оплату от покупателя.",
+  paid:"Покупатель оплатил! Передайте товар в эскроу.",
+  escrow:"Товар передан в эскроу. Ожидаем подтверждения от покупателя.",
+  received:"Сделка успешно завершена. Спасибо!",
   cancelled:"Сделка отменена.",
 };
 const nowText = (status, role) =>
   (role === "seller" ? NOW_TEXT_SELLER[status] : NOW_TEXT[status]) || NOW_TEXT[status] || "";
 
-/* роль текущего пользователя в сделке: seller | buyer */
-function dealRole(deal, myId) {
+/* роль в сделке: seller | buyer. forced — роль из открытой ссылки (?startapp=seller_/buyer_) */
+function dealRole(deal, myId, forced) {
+  if (forced === "seller" || forced === "buyer") return forced;   // явно открыли ссылку роли
   if (deal.sellerId && myId && deal.sellerId === myId) return "seller";
   if (deal.buyerId  && myId && deal.buyerId  === myId) return "buyer";
-  return deal.role || "buyer";   // роль из ссылки (?startapp=seller_/buyer_) либо покупатель-создатель
+  return deal.role || "buyer";
 }
 
 /* backend-сделка → форма, понятная фронту */
@@ -412,6 +414,7 @@ function App() {
 
   const [safetyDeal, setSafetyDeal] = useState(null);  // ждёт подтверждения безопасности
   const [openDealId, setOpenDealId] = useState(null);  // открытая карточка сделки
+  const [openRole, setOpenRole] = useState(null);      // роль из открытой ссылки (seller/buyer)
   const [shareDeal, setShareDeal] = useState(null);
   const [payDeal, setPayDeal] = useState(null);
   const [boot, setBoot] = useState(true);
@@ -481,12 +484,13 @@ function App() {
       if (deal) {
         const nd = normalizeDeal(deal, role);
         setDeals(prev => [...prev.filter(x => x.code !== nd.code), nd]);
+        setOpenRole(role);
         setOpenDealId(nd.id);
         return;
       }
       // офлайн / нет на сервере: открыть локальную сделку по коду, иначе показать экран продавца
       const ex = deals.find(x => x.code === code);
-      if (ex) { setOpenDealId(ex.id); return; }
+      if (ex) { setOpenRole(role); setOpenDealId(ex.id); return; }
       // данные сделки живут на бэкенде — без него их не получить (offline: true)
       const stub = {
         id: Date.now(), serverId: null, code, type: "Сделка", currency: "",
@@ -494,6 +498,7 @@ function App() {
         buyerId: null, sellerId: myId, role: "seller", offline: true,
       };
       setDeals(prev => [...prev, stub]);
+      setOpenRole(role);
       setOpenDealId(stub.id);
     })();
   }, []);
@@ -607,7 +612,7 @@ function App() {
       });
     } catch (e) {
       if (String(e.message).includes("403")) {
-        throw e;                                  // не двигаем статус локально
+        throw e;                                  // отклонено бэкендом — молча, без уведомления
       }
       /* сеть недоступна — двигаем локально, чтобы демо продолжалось */
     }
@@ -652,12 +657,12 @@ function App() {
       <div style={S.body}>
         <div key={openedDeal ? ("deal-" + openDealId) : tab} className="tabfade">
         {openedDeal
-          ? <DealView deal={openedDeal} me={tgUser.username} myId={myId} isAdmin={isAdmin}
+          ? <DealView deal={openedDeal} me={tgUser.username} myId={myId} forcedRole={openRole} isAdmin={isAdmin}
                       onUpd={updDeal} onStatus={changeStatus} onJoin={joinDeal}
                       onShare={() => setShareDeal(openedDeal)} onPay={() => setPayDeal(openedDeal)}
-                      onClose={() => setOpenDealId(null)} />
+                      onClose={() => { setOpenRole(null); setOpenDealId(null); }} />
           : <>
-              {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onOpenDeal={setOpenDealId} />}
+              {tab === "deals"   && <PgDeals deals={deals} onOpen={() => setShowCreate(true)} onOpenDeal={(id) => { setOpenRole(null); setOpenDealId(id); }} />}
               {tab === "wallets"  && <PgWall bals={bals} />}
               {tab === "leaders"  && <PgLead />}
               {tab === "profile"  && <PgProf user={tgUser} stats={stats} bals={bals} rateRows={RATE_ROWS} rates={rates} pt={profTab} setPt={setProfTab} onLang={() => setShowLang(true)} dark={dark} setDark={setDark} />}
@@ -842,12 +847,12 @@ function EscrowSteps({ status }) {
 /* ══════════════════════════════════
    DEAL VIEW (full page)
    ══════════════════════════════════ */
-function DealView({ deal, me, myId, onUpd, onStatus, onJoin, onShare, onPay, onClose, isAdmin }) {
+function DealView({ deal, me, myId, forcedRole, onUpd, onStatus, onJoin, onShare, onPay, onClose, isAdmin }) {
   const cur = STATUS_STEP[deal.status] ?? 1;
   const amt = parseFloat(deal.amount) || 0;
   const fee = amt * COMMISSION;
   const total = amt + fee;
-  const role = dealRole(deal, myId);              // seller | buyer
+  const role = dealRole(deal, myId, forcedRole);  // seller | buyer
   const roleLabel = role === "seller" ? "Вы — продавец" : "Вы — покупатель";
   const roleColor = role === "seller" ? "#8B5CF6" : "#2F80ED";
 
@@ -930,11 +935,8 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
   const cancelBtn = (
     <button style={{...S.oBtn, color:"#EF4444", borderColor:"#FCA5A5"}} onClick={() => onUpd(deal.id, "cancelled")}>Отменить сделку</button>
   );
-  const waiting = (txt) => (
-    <p style={{textAlign:"center",color:"#94A3B8",fontWeight:600,margin:"2px 0",fontSize:13,lineHeight:1.5}}>{txt}</p>
-  );
   // «Внести оплату» — кнопка видна ВСЕМ, но фактически оплату проводит только
-  // администратор (проверка на бэкенде: не-админ получит уведомление).
+  // администратор (проверка на бэкенде; не-админу просто ничего не произойдёт, без уведомления).
   const payBtn = <Btn onClick={onPay}>💳 Внести оплату</Btn>;
   // неактивная кнопка-статус (например «Ожидание покупателя»)
   const idleBtn = (txt) => (
@@ -983,8 +985,8 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
             {cancelBtn}
           </div>
         );
-      case "escrow":    // товар передан — ждём подтверждения покупателя
-        return waiting("Товар передан эскроу. Ожидаем подтверждения покупателя.");
+      case "escrow":    // товар передан — ждём подтверждения покупателя (текст в блоке «Сейчас»)
+        return null;
       default:
         return null;
     }
@@ -992,23 +994,22 @@ function DealActions({ deal, role, onUpd, onStatus, onJoin, onShare, onPay, isAd
 
   // ══ ПОКУПАТЕЛЬ (создатель) ══
   switch (deal.status) {
-    case "created":   // поделиться ссылкой продавцу + внести оплату
+    case "created":   // продавца ещё нет — только поделиться ссылкой (оплата будет после присоединения)
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <Btn onClick={onShare}>🔗 Поделиться сделкой</Btn>
-          {payBtn}
           {cancelBtn}
         </div>
       );
-    case "joined":    // продавец присоединился — покупатель вносит оплату
+    case "joined":    // продавец присоединился — теперь можно вносить оплату
       return (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {payBtn}
           {cancelBtn}
         </div>
       );
-    case "paid":      // оплатили — ждём передачу товара в эскроу продавцом
-      return waiting("Оплата в эскроу. Ожидаем передачу товара продавцом.");
+    case "paid":      // оплатили — ждём передачу товара в эскроу (текст в блоке «Сейчас»)
+      return null;
     case "escrow":    // продавец передал товар — покупатель завершает сделку
       return <Btn onClick={() => onStatus(deal, "received")}>✓ Завершить сделку</Btn>;
     default:
