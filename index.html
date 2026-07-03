@@ -49,7 +49,7 @@
   <div id="root"></div>
 
   <script type="text/babel" data-type="module" data-presets="react">
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 window.addEventListener('error', function (ev) {
   var box = document.getElementById('err');
@@ -246,7 +246,7 @@ const COMMISSION     = 0.01;                    // 1%
 const ADMIN_ID       = 8857701553;             // главный админ (тот же ID, что в бэкенде) — запасной вариант офлайн
 const IS_ADMIN = (window.Telegram?.WebApp?.initDataUnsafe?.user?.id === ADMIN_ID);
 // '' = тот же домен, что и приложение; иначе укажи URL бэкенда (где /api/sync).
-const API_BASE = "https://twice-smith-directory-ccd.trycloudflare.com";
+const API_BASE = "https://donor-clan-clinic-previous.trycloudflare.com";
 
 async function api(path, opts = {}) {
   const initData = window.Telegram?.WebApp?.initData || "";
@@ -702,7 +702,16 @@ const SPLASH_VIDEO = "welcome_video.mp4";
 
 function Splash({ done, onDone }) {
   const [failed, setFailed] = useState(false);
+  const vref = useRef(null);
   const useVideo = SPLASH_VIDEO && !failed;
+  // некоторые вебвью (в т.ч. Telegram) не запускают autoplay сами — жмём play() вручную
+  useEffect(() => {
+    const v = vref.current;
+    if (!v) return;
+    v.muted = true;                       // без mute autoplay блокируется
+    const p = v.play();
+    if (p && p.catch) p.catch(() => {});  // заблокировали — молча, покажется хотя бы кадр
+  }, []);
   return (
     <div style={{
       position:"fixed", inset:0, zIndex:9999, overflow:"hidden",
@@ -712,7 +721,8 @@ function Splash({ done, onDone }) {
     }}>
       {useVideo
         ? <video
-            src={SPLASH_VIDEO} autoPlay muted playsInline
+            ref={vref}
+            src={SPLASH_VIDEO} autoPlay muted playsInline preload="auto"
             onEnded={() => onDone && onDone()}
             onError={() => setFailed(true)}
             style={{position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"contain"}}
